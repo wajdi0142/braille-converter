@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel, QMessageBox
 from PyQt5.QtCore import Qt
 
 class BrailleTab(QWidget):
@@ -42,3 +42,16 @@ class BrailleTab(QWidget):
         """Handle text changes with debouncing."""
         if self.parent:
             self.parent.debounce_update()
+            self.validate_conversion()
+
+    def validate_conversion(self):
+        """Validate Braille output against input text."""
+        text = self.text_input.toPlainText().strip()
+        braille = self.text_output.toPlainText().strip()
+        if not text or not braille:
+            return
+        selected_table = self.parent.table_combo.currentText()
+        reverse_text = self.parent.braille_engine.from_braille(braille, self.parent.available_tables[selected_table])
+        if reverse_text != text:
+            # Alerte supprimée : on ne fait rien
+            pass

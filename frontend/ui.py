@@ -2,7 +2,8 @@ import os
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton,
     QComboBox, QTabWidget, QFileDialog, QToolBar, QAction, QMessageBox,
-    QStatusBar, QSlider, QMenuBar, QMenu, QSpinBox, QInputDialog, QLabel, QApplication
+    QStatusBar, QSlider, QMenuBar, QMenu, QSpinBox, QInputDialog, QLabel,
+    QApplication, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer, QEvent, QTime
 from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat
@@ -56,11 +57,19 @@ class BrailleUI(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.stack_layout = QVBoxLayout(self.central_widget)
-        self.stack_layout.setAlignment(Qt.AlignCenter)
 
+        self.auth_container = QWidget()
+        self.auth_layout = QVBoxLayout(self.auth_container)
+        self.auth_layout.setAlignment(Qt.AlignCenter)
         self.auth_widget = AuthWidget(self)
         self.auth_widget.logout_signal.connect(self.handle_logout)
-        self.stack_layout.addWidget(self.auth_widget)
+
+        auth_inner_layout = QHBoxLayout()
+        auth_inner_layout.addStretch()
+        auth_inner_layout.addWidget(self.auth_widget)
+        auth_inner_layout.addStretch()
+        self.auth_layout.addLayout(auth_inner_layout)
+        self.stack_layout.addWidget(self.auth_container)
 
         self.main_widget = QWidget()
         self.main_layout = QVBoxLayout(self.main_widget)
@@ -72,7 +81,8 @@ class BrailleUI(QMainWindow):
         table_layout = QHBoxLayout()
         self.table_combo_label = QLabel("Langue (Table) :")
         self.table_combo = QComboBox()
-        self.table_combo.addItems(self.available_tables.keys())
+        self.table_combo.addItems(self.available_tables.keys())  # Inclut maintenant "Arabe (grade 1)"
+        self.table_combo.setCurrentText("Français (grade 1)")  # Par défaut
         self.table_combo.currentTextChanged.connect(self.debounce_update)
         table_layout.addWidget(self.table_combo_label)
         table_layout.addWidget(self.table_combo)
@@ -120,30 +130,27 @@ class BrailleUI(QMainWindow):
         control_layout.addLayout(zoom_layout)
         self.main_layout.addLayout(control_layout)
 
-        auth_layout = QHBoxLayout()
-        self.auth_button = QPushButton()
-        self.auth_button.setIcon(QIcon("icons/user.png"))
-        self.auth_button.setText("Se connecter")
-        self.auth_button.setToolTip("Se connecter")
-        self.auth_button.clicked.connect(self.show_auth_widget)
-        auth_layout.addStretch()
-        auth_layout.addWidget(self.auth_button)
-        self.main_layout.addLayout(auth_layout)
-
         self.stack_layout.addWidget(self.main_widget)
-        self.auth_widget.show()  # Afficher l'authentification par défaut
-        self.main_widget.hide()
 
         self.init_status_bar()
+
+        self.auth_container.hide()
+        self.main_widget.show()
+        self.new_document()
+
         self.init_menu_bar()
         self.toolbar = self.addToolBar("Main Toolbar")
         self.init_toolbar()
+
         set_light_mode(self.app)
         self.auth_widget.check_device_auth()
 
     def show_auth_widget(self):
-        self.main_widget.hide()
-        self.auth_widget.show()
+        if self.current_email:
+            self.handle_logout()
+        else:
+            self.main_widget.hide()
+            self.auth_container.show()
 
     def show_main_interface(self, email, user_info):
         self.logged_in_user = self.db.get_utilisateur_by_email(email)
@@ -151,12 +158,11 @@ class BrailleUI(QMainWindow):
             user_id = self.db.ajouter_utilisateur(user_info.get("nom", email.split("@")[0]), email)
             self.logged_in_user = self.db.get_utilisateur_by_email(email)
         self.current_email = email
-        self.auth_widget.hide()
+        self.auth_container.hide()
         self.main_widget.show()
         self.auth_button.setIcon(QIcon("icons/user-logged-in.png"))
         self.auth_button.setText(f"{email}")
         self.auth_button.setToolTip(f"Connecté : {email}")
-        self.new_document()
         self.usage_start_time = QTime.currentTime()
 
     def handle_logout(self):
@@ -165,8 +171,8 @@ class BrailleUI(QMainWindow):
             self.db.update_usage_time(self.logged_in_user.id, elapsed)
         self.logged_in_user = None
         self.current_email = None
-        self.main_widget.hide()
-        self.auth_widget.show()
+        self.main_widget.show()
+        self.auth_container.hide()
         self.auth_widget.logged_in_event()
         self.auth_button.setIcon(QIcon("icons/user.png"))
         self.auth_button.setText("Se connecter")
@@ -230,6 +236,7 @@ class BrailleUI(QMainWindow):
         settings_menu.addAction("Ajuster le retrait", self.adjust_indent)
         settings_menu.addAction("Personnaliser table Braille", self.show_custom_table)
         settings_menu.addAction("Voir les statistiques d'utilisation", self.show_usage_stats)
+        settings_menu.addAction("Tester la conversion", self.test_conversion)
 
         edit_menu = menu_bar.addMenu("Édition")
         reverse_action = QAction("Inverser la conversion", self)
@@ -273,6 +280,15 @@ class BrailleUI(QMainWindow):
 
         self.toolbar.addSeparator()
         self.toolbar.addAction(QIcon("icons/reverse.png"), "Inverser", self.reverse_conversion)
+
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.toolbar.addWidget(spacer)
+
+        self.auth_button = QAction(QIcon("icons/user.png"), "Se connecter", self)
+        self.auth_button.triggered.connect(self.show_auth_widget)
+        self.auth_button.setToolTip("Se connecter")
+        self.toolbar.addAction(self.auth_button)
 
     def keyPressEvent(self, event):
         tab = self.tab_widget.currentWidget()
@@ -380,7 +396,7 @@ class BrailleUI(QMainWindow):
     def adjust_line_width(self):
         line_width, ok = QInputDialog.getInt(self, "Ajuster la largeur des lignes",
                                              "Entrez la largeur de ligne (caractères) :",
-                                             self.line_width, 1, 33, 1)
+                                             self.line_width, 1, 80, 1)
         if ok:
             self.line_width = line_width
             self.update_conversion()
@@ -432,13 +448,14 @@ class BrailleUI(QMainWindow):
             self.toggle_size_button.setIcon(QIcon("icons/restore.png"))
 
     def debounce_update(self):
-        self.update_timer.start(300)
+        self.update_timer.start(50)
 
     def update_conversion(self):
         tab = self.tab_widget.currentWidget()
         if tab:
             self.sync_text_areas(tab)
             self.update_counters()
+            tab.validate_conversion()
 
     def sync_text_areas(self, tab):
         if not tab:
@@ -472,11 +489,16 @@ class BrailleUI(QMainWindow):
         tab.text_input.blockSignals(False)
         tab.text_output.blockSignals(False)
 
-    def on_text_changed(self):
+    def test_conversion(self):
+        # Test avec texte arabe
+        test_text = "الشبكات الاجتماعية"  # "Les réseaux sociaux" en arabe
         tab = self.tab_widget.currentWidget()
         if tab:
-            self.sync_text_areas(tab)
-            self.update_counters()
+            self.table_combo.setCurrentText("Arabe (grade 1)")  # Sélectionne la table arabe
+            tab.text_input.setPlainText(test_text)
+            self.update_conversion()
+            print(f"Texte arabe : {test_text}")
+            print(f"Braille arabe : {tab.text_output.toPlainText()}")
 
     def reverse_conversion(self):
         tab = self.tab_widget.currentWidget()
@@ -769,7 +791,7 @@ class BrailleUI(QMainWindow):
             self.status_bar.showMessage("Aucun onglet ouvert")
 
     def update_usage_time(self):
-        if self.logged_in_user:
+        if self.logged_in_user and hasattr(self, 'usage_start_time'):
             elapsed = self.usage_start_time.secsTo(QTime.currentTime())
             self.status_bar.showMessage(f"Temps d'utilisation : {elapsed // 60} min {elapsed % 60} sec")
 
@@ -797,8 +819,14 @@ class BrailleUI(QMainWindow):
             self.update_counters()
 
     def closeEvent(self, event):
-        if self.logged_in_user:
+        if self.logged_in_user and hasattr(self, 'usage_start_time'):
             elapsed = self.usage_start_time.secsTo(QTime.currentTime())
             self.db.update_usage_time(self.logged_in_user.id, elapsed)
         self.db.fermer_connexion()
         event.accept()
+
+if __name__ == "__main__":
+    app = QApplication([])
+    window = BrailleUI(app)
+    window.show()
+    app.exec_()

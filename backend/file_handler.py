@@ -4,7 +4,7 @@ import docx
 import docx.shared
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageEnhance
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -14,6 +14,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from PyQt5.QtGui import QFont, QTextCursor, QTextCharFormat, QPainter
 from PyQt5.QtCore import Qt
 from PyQt5.QtPrintSupport import QPrinter
+import pytesseract
 from .config import BRAILLE_FONT_NAME as CONFIG_BRAILLE_FONT_NAME, FALLBACK_FONT, FONT_PATH
 from .braille_engine import BrailleEngine
 
@@ -22,6 +23,7 @@ class FileHandler:
         self.braille_engine = BrailleEngine()
         self.braille_font_name = self._register_font()
         self.last_gcode = None
+        self.parent = None
 
     def extract_text(self, file_path):
         if file_path.endswith(".pdf"):
@@ -53,42 +55,80 @@ class FileHandler:
             print(f"Erreur : {e}. Utilisation de {FALLBACK_FONT}")
             return FALLBACK_FONT
 
-    def image_to_braille(self, image_path, width=40, height=20, mode="contours"):
+    def image_to_braille(self, image_path, width=40, height=20, mode="hybrid", contrast=1.0, threshold=None):
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
         if image is None:
             raise ValueError("Impossible de charger l'image.")
-        image = cv2.GaussianBlur(image, (5, 5), 0)
-        edges = cv2.Canny(image, 50, 150)
-        braille_width = width * 2
-        braille_height = height * 4
-        edges = cv2.resize(edges, (braille_width, braille_height), interpolation=cv2.INTER_AREA)
-        pixels = (edges == 255)
-        braille_grid = []
-        gcode_lines = ["G21", "G90", "M3 S1000"]
-        has_contours = False
 
-        for y in range(0, braille_height, 4):
-            braille_row = []
-            for x in range(0, braille_width, 2):
-                block = pixels[y:y+4, x:x+2]
-                if block.shape != (4, 2):
-                    braille_row.append(' ')
-                    continue
-                points = [block[0, 0], block[1, 0], block[2, 0], block[0, 1], block[1, 1], block[2, 1], block[3, 0], block[3, 1]]
-                braille_value = sum(1 << i for i, p in enumerate(points) if p)
-                braille_char = chr(0x2800 + braille_value)
-                braille_row.append(braille_char)
-                if braille_value:
-                    has_contours = True
-                    gcode_x = x / 2.0
-                    gcode_y = (braille_height - y) / 4.0
-                    gcode_lines.append(f"G01 X{gcode_x:.2f} Y{gcode_y:.2f} Z-0.1")
-            braille_grid.append(''.join(braille_row))
-        gcode_lines.append("M5")
-        self.last_gcode = "\n".join(gcode_lines) if has_contours else None
-        if not has_contours:
-            print("Aucun contour détecté dans l'image.")
-        return '\n'.join(braille_grid)
+        image_pil = Image.fromarray(image)
+        enhancer = ImageEnhance.Contrast(image_pil)
+        image_pil = enhancer.enhance(contrast)
+        image = np.array(image_pil)
+
+        extracted_text = ""
+        braille_text = ""
+
+        if mode in ["text", "hybrid"]:
+            try:
+                extracted_text = pytesseract.image_to_string(image, lang='fra', config='--psm 6 --oem 1')
+                if extracted_text.strip():
+                    selected_table = self.braille_engine.get_available_tables().get("Français (grade 1)", "fr-bfu-comp6.utb")
+                    braille_text = self.braille_engine.to_braille(extracted_text, selected_table, line_width=width)
+                    if mode == "text":
+                        return extracted_text, braille_text
+            except Exception as e:
+                print(f"Erreur OCR : {e}")
+
+        if mode in ["graphic", "hybrid"]:
+            if threshold is None:
+                _, image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            else:
+                image = cv2.Canny(image, threshold, threshold * 2)
+
+            image = cv2.resize(image, (width * 2, height * 4))
+
+            braille_grid = []
+            gcode_lines = ["G21", "G90", "M3 S1000"]
+            has_content = False
+
+            for y in range(0, height * 4, 4):
+                braille_row = []
+                for x in range(0, width * 2, 2):
+                    block = image[y:y+4, x:x+2]
+                    if block.shape != (4, 2):
+                        braille_row.append(' ')
+                        continue
+
+                    dots = 0
+                    for i in range(4):
+                        for j in range(2):
+                            if block[i, j] > 128:
+                                dots |= 1 << (i * 2 + j)
+                    braille_char = chr(0x2800 + dots)
+                    braille_row.append(braille_char)
+
+                    if dots > 0:
+                        has_content = True
+                        gcode_x = x / 2.0
+                        gcode_y = (height * 4 - y) / 4.0
+                        gcode_lines.append(f"G01 X{gcode_x:.2f} Y{gcode_y:.2f} Z-0.1")
+
+                braille_grid.append(''.join(braille_row))
+
+            gcode_lines.append("M5")
+            self.last_gcode = "\n".join(gcode_lines) if has_content else None
+
+            graphic_braille = '\n'.join(braille_grid).strip()
+            if mode == "hybrid" and braille_text and graphic_braille:
+                braille_text += "\n\n--- Graphique ---\n" + graphic_braille
+            elif mode == "graphic":
+                braille_text = graphic_braille
+
+        if braille_text:
+            braille_lines = [line.rstrip() for line in braille_text.split('\n') if line.strip()]
+            braille_text = '\n'.join(braille_lines)
+
+        return extracted_text, braille_text if braille_text else ""
 
     def save_text(self, file_path, text):
         with open(file_path, 'w', encoding='utf-8') as f:
@@ -182,7 +222,7 @@ class FileHandler:
         font = QFont(self.braille_font_name, 14)
         painter.setFont(font)
         y_pos = 50
-        line_height = 30  # Adapté pour embosseuses
+        line_height = 30
         max_lines = self.parent.lines_per_page if hasattr(self.parent, 'lines_per_page') else 25
         lines_printed = 0
 
@@ -199,7 +239,7 @@ class FileHandler:
 
         if braille:
             for line in braille.split('\n'):
-                painter.drawText(50, y_pos, self.braille_engine.wrap_text(line, 40))  # Limite à 40 caractères
+                painter.drawText(50, y_pos, self.braille_engine.wrap_text(line, 40))
                 y_pos += line_height
                 lines_printed += 1
                 if lines_printed >= max_lines:

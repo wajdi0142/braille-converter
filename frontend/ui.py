@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QApplication, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt, QTimer, QEvent, QTime
-from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat
+from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from backend.braille_engine import BrailleEngine
 from backend.file_handler import FileHandler
@@ -40,7 +40,7 @@ class BrailleUI(QMainWindow):
 
         self.dark_mode = False
         self.conversion_mode = "text_to_braille"
-        self.line_width = 33
+        self.line_width = 80
         self.lines_per_page = 25
         self.update_timer = QTimer()
         self.update_timer.setSingleShot(True)
@@ -81,8 +81,8 @@ class BrailleUI(QMainWindow):
         table_layout = QHBoxLayout()
         self.table_combo_label = QLabel("Langue (Table) :")
         self.table_combo = QComboBox()
-        self.table_combo.addItems(self.available_tables.keys())  # Inclut maintenant "Arabe (grade 1)"
-        self.table_combo.setCurrentText("Français (grade 1)")  # Par défaut
+        self.table_combo.addItems(self.available_tables.keys())
+        self.table_combo.setCurrentText("Français (grade 1)")
         self.table_combo.currentTextChanged.connect(self.debounce_update)
         table_layout.addWidget(self.table_combo_label)
         table_layout.addWidget(self.table_combo)
@@ -396,7 +396,7 @@ class BrailleUI(QMainWindow):
     def adjust_line_width(self):
         line_width, ok = QInputDialog.getInt(self, "Ajuster la largeur des lignes",
                                              "Entrez la largeur de ligne (caractères) :",
-                                             self.line_width, 1, 80, 1)
+                                             self.line_width, 1, 120, 1)
         if ok:
             self.line_width = line_width
             self.update_conversion()
@@ -460,6 +460,10 @@ class BrailleUI(QMainWindow):
     def sync_text_areas(self, tab):
         if not tab:
             return
+
+        if tab.file_path and tab.file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tiff')):
+            return
+
         tab.text_input.blockSignals(True)
         tab.text_output.blockSignals(True)
         if self.conversion_mode == "text_to_braille":
@@ -490,15 +494,14 @@ class BrailleUI(QMainWindow):
         tab.text_output.blockSignals(False)
 
     def test_conversion(self):
-        # Test avec texte arabe
-        test_text = "الشبكات الاجتماعية"  # "Les réseaux sociaux" en arabe
+        test_text = "Voici la version mise à jour, intégrant l’analyse"  # Texte français accentué
         tab = self.tab_widget.currentWidget()
         if tab:
-            self.table_combo.setCurrentText("Arabe (grade 1)")  # Sélectionne la table arabe
+            self.table_combo.setCurrentText("Français (grade 1)")
             tab.text_input.setPlainText(test_text)
             self.update_conversion()
-            print(f"Texte arabe : {test_text}")
-            print(f"Braille arabe : {tab.text_output.toPlainText()}")
+            print(f"Texte : {test_text}")
+            print(f"Braille : {tab.text_output.toPlainText()}")
 
     def reverse_conversion(self):
         tab = self.tab_widget.currentWidget()
@@ -574,23 +577,60 @@ class BrailleUI(QMainWindow):
         if not file_path:
             return
 
+        dialog = QInputDialog(self)
+        dialog.setWindowTitle("Options de conversion d'image")
+        dialog.setLabelText("Choisissez le mode de conversion :")
+        dialog.setComboBoxItems(["Texte (OCR)", "Graphique (Courbes/Formes)", "Hybride (Texte + Graphique)"])
+        dialog.setOkButtonText("Convertir")
+        dialog.setCancelButtonText("Annuler")
+        
+        if not dialog.exec_():
+            return
+            
+        mode_map = {
+            "Texte (OCR)": "text",
+            "Graphique (Courbes/Formes)": "graphic",
+            "Hybride (Texte + Graphique)": "hybrid"
+        }
+        mode = mode_map[dialog.textValue()]
+
         try:
-            braille_text = self.file_handler.image_to_braille(file_path, width=40, height=20, mode="contours")
+            extracted_text, braille_text = self.file_handler.image_to_braille(file_path, mode=mode)
             if not braille_text.strip():
-                QMessageBox.warning(self, "Avertissement", "Aucun contenu braille généré à partir de l'image.")
+                QMessageBox.warning(self, "Avertissement", "Aucun contenu Braille généré.")
                 return
-            tab = BrailleTab(self, file_path=file_path, save_type="Braille uniquement")
+
+            tab = BrailleTab(self, file_path=file_path, save_type="Texte + Braille")
+            tab.text_input.blockSignals(True)
+            tab.text_output.blockSignals(True)
+            
+            cursor = tab.text_input.textCursor()
+            image_format = QTextImageFormat()
+            image_format.setName(file_path)
+            image_format.setWidth(300)
+            cursor.insertImage(image_format)
+            
+            if extracted_text.strip():
+                cursor.insertText("\n\nTexte extrait :\n" + extracted_text)
+            
+            tab.original_text = extracted_text if extracted_text else ""
             tab.text_output.setPlainText(braille_text)
             tab.original_braille = braille_text
-            tab_title = os.path.basename(file_path) if file_path else "Image importée"
+            
+            tab.text_input.blockSignals(False)
+            tab.text_output.blockSignals(False)
+
+            tab_title = os.path.basename(file_path)
             self.tab_widget.addTab(tab, tab_title)
             self.update_counters()
             self.tab_widget.setCurrentIndex(self.tab_widget.count() - 1)
+            
             if self.logged_in_user:
                 fichier = Fichier(tab_title, file_path)
                 self.db.sauvegarder_fichier(self.logged_in_user.id, fichier)
+                
         except Exception as e:
-            QMessageBox.critical(self, "Erreur", f"Erreur lors de l'importation de l'image : {str(e)}")
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de l'importation : {str(e)}")
 
     def save_document(self):
         tab = self.tab_widget.currentWidget()

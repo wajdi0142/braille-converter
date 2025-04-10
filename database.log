@@ -5,3 +5,326 @@ ERROR:root:Login error: 'BrailleUI' object has no attribute 'was_maximized'
 ERROR:root:Login error: 'BrailleUI' object has no attribute 'was_maximized'
 ERROR:root:Login error: 'BrailleUI' object has no attribute 'was_maximized'
 ERROR:root:Login error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'generate_jwt_token'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'generate_jwt_token'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'generate_jwt_token'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'generate_jwt_token'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'generate_jwt_token'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Login error: 'Database' object has no attribute 'check_login_attempts'
+ERROR:root:Password reset error: 'Database' object has no attribute 'generate_2fa_code'
+2025-04-10 23:16:13,630 - DEBUG - Database connection established
+2025-04-10 23:16:13,634 - INFO - Database tables initialized successfully
+2025-04-10 23:16:13,634 - DEBUG - Database connection closed
+2025-04-10 23:16:13,648 - DEBUG - Database connection established
+2025-04-10 23:16:13,648 - INFO - Database tables initialized successfully
+2025-04-10 23:16:13,648 - DEBUG - Database connection closed
+2025-04-10 23:16:13,648 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 23:16:13,672 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 23:16:14,255 - DEBUG - Database connection established
+2025-04-10 23:16:14,257 - DEBUG - Database connection closed
+2025-04-10 23:16:14,257 - DEBUG - Login interface displayed
+2025-04-10 23:16:14,257 - DEBUG - No device authentication found, showing login interface
+2025-04-10 23:16:14,257 - DEBUG - BrailleUI initialized successfully
+2025-04-10 23:16:19,674 - WARNING - No token available for validation
+2025-04-10 23:16:19,677 - DEBUG - Login interface displayed
+2025-04-10 23:16:19,678 - DEBUG - Logged-in event processed, login interface reset
+2025-04-10 23:16:19,683 - INFO - User logged out successfully
+2025-04-10 23:16:30,725 - DEBUG - Password strength updated: 25%
+2025-04-10 23:16:30,902 - DEBUG - Password strength updated: 25%
+2025-04-10 23:16:31,080 - DEBUG - Password strength updated: 25%
+2025-04-10 23:16:31,363 - DEBUG - Password strength updated: 25%
+2025-04-10 23:16:31,570 - DEBUG - Password strength updated: 25%
+2025-04-10 23:16:31,721 - DEBUG - Password strength updated: 25%
+2025-04-10 23:16:33,386 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 23:16:33,387 - DEBUG - Database connection established
+2025-04-10 23:16:33,388 - ERROR - Check login attempts error for email wajdiwaj03@gmail.com: no such column: attempts
+2025-04-10 23:16:33,388 - DEBUG - Database connection closed
+2025-04-10 23:16:33,388 - ERROR - Login error: no such column: attempts
+2025-04-10 23:16:38,335 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 23:16:38,336 - DEBUG - Database connection established
+2025-04-10 23:16:38,339 - DEBUG - Database connection closed
+2025-04-10 23:16:38,340 - DEBUG - Database connection established
+2025-04-10 23:16:38,340 - ERROR - 2FA code generation error for user_id 3: name 'random' is not defined
+2025-04-10 23:16:38,340 - DEBUG - Database connection closed
+2025-04-10 23:16:38,340 - ERROR - Email auth error: name 'random' is not defined
+2025-04-10 23:16:41,513 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 23:16:43,571 - DEBUG - CAPTCHA verification successful: 3 + 10 = 13
+2025-04-10 23:16:43,572 - DEBUG - Database connection established
+2025-04-10 23:16:43,572 - DEBUG - Database connection closed
+2025-04-10 23:16:43,572 - DEBUG - Database connection established
+2025-04-10 23:16:43,573 - ERROR - 2FA code generation error for user_id 3: name 'random' is not defined
+2025-04-10 23:16:43,573 - DEBUG - Database connection closed
+2025-04-10 23:16:43,573 - ERROR - Password reset error: name 'random' is not defined
+2025-04-10 23:16:48,069 - ERROR - Error during close event: Cannot operate on a closed database.
+2025-04-10 23:17:03,611 - DEBUG - Database connection established
+2025-04-10 23:17:03,611 - INFO - Database tables initialized successfully
+2025-04-10 23:17:03,611 - DEBUG - Database connection closed
+2025-04-10 23:17:03,613 - DEBUG - Database connection established
+2025-04-10 23:17:03,613 - INFO - Database tables initialized successfully
+2025-04-10 23:17:03,613 - DEBUG - Database connection closed
+2025-04-10 23:17:03,613 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 23:17:03,619 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 23:17:03,892 - DEBUG - Database connection established
+2025-04-10 23:17:03,893 - DEBUG - Database connection closed
+2025-04-10 23:17:03,893 - DEBUG - Login interface displayed
+2025-04-10 23:17:03,893 - DEBUG - No device authentication found, showing login interface
+2025-04-10 23:17:03,893 - DEBUG - BrailleUI initialized successfully
+2025-04-10 23:18:14,646 - DEBUG - Password strength updated: 25%
+2025-04-10 23:18:15,552 - DEBUG - Password strength updated: 25%
+2025-04-10 23:18:15,838 - DEBUG - Password strength updated: 25%
+2025-04-10 23:18:16,372 - DEBUG - Password strength updated: 25%
+2025-04-10 23:18:16,610 - DEBUG - Password strength updated: 25%
+2025-04-10 23:18:17,135 - DEBUG - Password strength updated: 50%
+2025-04-10 23:18:17,465 - DEBUG - Password strength updated: 50%
+2025-04-10 23:18:17,608 - DEBUG - Password strength updated: 75%
+2025-04-10 23:18:17,834 - DEBUG - Password strength updated: 75%
+2025-04-10 23:18:18,011 - DEBUG - Password strength updated: 75%
+2025-04-10 23:18:18,746 - DEBUG - Password strength updated: 100%
+2025-04-10 23:18:20,333 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:18:20,334 - DEBUG - Database connection established
+2025-04-10 23:18:20,334 - ERROR - Check login attempts error for email elarbiwajdi0@gmail.com: no such column: attempts
+2025-04-10 23:18:20,335 - DEBUG - Database connection closed
+2025-04-10 23:18:20,335 - ERROR - Login error: no such column: attempts
+2025-04-10 23:18:23,066 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:18:25,204 - DEBUG - CAPTCHA verification successful: 8 + 2 = 10
+2025-04-10 23:18:25,204 - DEBUG - Database connection established
+2025-04-10 23:18:25,204 - DEBUG - Database connection closed
+2025-04-10 23:18:25,205 - DEBUG - Database connection established
+2025-04-10 23:18:25,206 - ERROR - 2FA code generation error for user_id 2: NOT NULL constraint failed: two_factor_codes.expires_at
+2025-04-10 23:18:25,206 - DEBUG - Database connection closed
+2025-04-10 23:18:25,206 - ERROR - Password reset error: NOT NULL constraint failed: two_factor_codes.expires_at
+2025-04-10 23:18:55,763 - DEBUG - Database connection established
+2025-04-10 23:18:55,764 - INFO - Database tables initialized successfully
+2025-04-10 23:18:55,764 - DEBUG - Database connection closed
+2025-04-10 23:18:55,765 - DEBUG - Database connection established
+2025-04-10 23:18:55,765 - INFO - Database tables initialized successfully
+2025-04-10 23:18:55,765 - DEBUG - Database connection closed
+2025-04-10 23:18:55,766 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 23:18:55,769 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 23:18:55,989 - DEBUG - Database connection established
+2025-04-10 23:18:55,990 - DEBUG - Database connection closed
+2025-04-10 23:18:55,990 - DEBUG - Login interface displayed
+2025-04-10 23:18:55,990 - DEBUG - No device authentication found, showing login interface
+2025-04-10 23:18:55,990 - DEBUG - BrailleUI initialized successfully
+2025-04-10 23:19:03,042 - DEBUG - Password strength updated: 25%
+2025-04-10 23:19:03,444 - DEBUG - Password strength updated: 25%
+2025-04-10 23:19:03,812 - DEBUG - Password strength updated: 25%
+2025-04-10 23:19:04,089 - DEBUG - Password strength updated: 25%
+2025-04-10 23:19:04,398 - DEBUG - Password strength updated: 25%
+2025-04-10 23:19:04,859 - DEBUG - Password strength updated: 50%
+2025-04-10 23:19:05,088 - DEBUG - Password strength updated: 50%
+2025-04-10 23:19:05,204 - DEBUG - Password strength updated: 75%
+2025-04-10 23:19:05,394 - DEBUG - Password strength updated: 75%
+2025-04-10 23:19:05,547 - DEBUG - Password strength updated: 75%
+2025-04-10 23:19:06,161 - DEBUG - Password strength updated: 100%
+2025-04-10 23:19:07,726 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:19:07,727 - DEBUG - Database connection established
+2025-04-10 23:19:07,728 - ERROR - Check login attempts error for email elarbiwajdi0@gmail.com: no such column: attempts
+2025-04-10 23:19:07,728 - DEBUG - Database connection closed
+2025-04-10 23:19:07,728 - ERROR - Login error: no such column: attempts
+2025-04-10 23:19:10,294 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:19:12,112 - DEBUG - CAPTCHA verification successful: 9 + 6 = 15
+2025-04-10 23:19:12,112 - DEBUG - Database connection established
+2025-04-10 23:19:12,113 - DEBUG - Database connection closed
+2025-04-10 23:19:12,113 - DEBUG - Database connection established
+2025-04-10 23:19:12,113 - ERROR - 2FA code generation error for user_id 2: NOT NULL constraint failed: two_factor_codes.expires_at
+2025-04-10 23:19:12,113 - DEBUG - Database connection closed
+2025-04-10 23:19:12,113 - ERROR - Password reset error: NOT NULL constraint failed: two_factor_codes.expires_at
+2025-04-10 23:19:19,590 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:19:21,176 - DEBUG - CAPTCHA verification successful: 1 + 6 = 7
+2025-04-10 23:19:21,176 - DEBUG - Database connection established
+2025-04-10 23:19:21,177 - DEBUG - Database connection closed
+2025-04-10 23:19:21,177 - DEBUG - Database connection established
+2025-04-10 23:19:21,177 - ERROR - 2FA code generation error for user_id 2: NOT NULL constraint failed: two_factor_codes.expires_at
+2025-04-10 23:19:21,177 - DEBUG - Database connection closed
+2025-04-10 23:19:21,177 - ERROR - Password reset error: NOT NULL constraint failed: two_factor_codes.expires_at
+2025-04-10 23:19:25,513 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:19:25,514 - DEBUG - Database connection established
+2025-04-10 23:19:25,515 - ERROR - Check login attempts error for email elarbiwajdi0@gmail.com: no such column: attempts
+2025-04-10 23:19:25,515 - DEBUG - Database connection closed
+2025-04-10 23:19:25,515 - ERROR - Login error: no such column: attempts
+2025-04-10 23:26:14,499 - DEBUG - Database connection established
+2025-04-10 23:26:14,510 - ERROR - Database initialization error: no such column: last_attempt
+2025-04-10 23:26:14,510 - DEBUG - Database connection closed
+2025-04-10 23:27:08,493 - DEBUG - Database connection established
+2025-04-10 23:27:08,504 - INFO - Database tables initialized successfully
+2025-04-10 23:27:08,504 - DEBUG - Database connection closed
+2025-04-10 23:27:08,513 - DEBUG - Database connection established
+2025-04-10 23:27:08,520 - INFO - Database tables initialized successfully
+2025-04-10 23:27:08,520 - DEBUG - Database connection closed
+2025-04-10 23:27:08,520 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 23:27:08,539 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 23:27:09,130 - DEBUG - Database connection established
+2025-04-10 23:27:09,130 - DEBUG - Database connection closed
+2025-04-10 23:27:09,130 - DEBUG - Login interface displayed
+2025-04-10 23:27:09,130 - DEBUG - No device authentication found, showing login interface
+2025-04-10 23:27:09,131 - DEBUG - BrailleUI initialized successfully
+2025-04-10 23:27:21,886 - DEBUG - Password strength updated: 25%
+2025-04-10 23:27:22,495 - DEBUG - Password strength updated: 25%
+2025-04-10 23:27:22,717 - DEBUG - Password strength updated: 25%
+2025-04-10 23:27:22,892 - DEBUG - Password strength updated: 25%
+2025-04-10 23:27:23,169 - DEBUG - Password strength updated: 25%
+2025-04-10 23:27:24,535 - DEBUG - Password strength updated: 50%
+2025-04-10 23:27:24,818 - DEBUG - Password strength updated: 50%
+2025-04-10 23:27:24,934 - DEBUG - Password strength updated: 75%
+2025-04-10 23:27:25,243 - DEBUG - Password strength updated: 75%
+2025-04-10 23:27:25,445 - DEBUG - Password strength updated: 75%
+2025-04-10 23:27:26,133 - DEBUG - Password strength updated: 100%
+2025-04-10 23:27:27,660 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:27:27,660 - DEBUG - Database connection established
+2025-04-10 23:27:27,666 - DEBUG - Database connection closed
+2025-04-10 23:27:27,668 - DEBUG - Database connection established
+2025-04-10 23:27:27,669 - DEBUG - Database connection closed
+2025-04-10 23:27:27,873 - DEBUG - Database connection established
+2025-04-10 23:27:27,877 - INFO - 2FA code generated for user_id 2: 943229
+2025-04-10 23:27:27,877 - DEBUG - Database connection closed
+2025-04-10 23:27:27,986 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:27:27,986 - DEBUG - PAYLOAD: b'{"from": {"email": "your_email@gmail.com"}, "subject": "Code d\'authentification \\u00e0 deux facteurs", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "De : Braille Converter\\n\\nVotre code 2FA est : 943229\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:27:27,986 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:27:28,807 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:27:28,807 - ERROR - Network or unexpected error with SendGrid: HTTP Error 401: Unauthorized
+2025-04-10 23:27:28,808 - INFO - Falling back to Gmail SMTP...
+2025-04-10 23:27:31,110 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 23:27:34,626 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:27:36,839 - DEBUG - CAPTCHA verification successful: 5 + 3 = 8
+2025-04-10 23:27:36,840 - DEBUG - Database connection established
+2025-04-10 23:27:36,840 - DEBUG - Database connection closed
+2025-04-10 23:27:36,841 - DEBUG - Database connection established
+2025-04-10 23:27:36,845 - INFO - 2FA code generated for user_id 2: 523331
+2025-04-10 23:27:36,845 - DEBUG - Database connection closed
+2025-04-10 23:27:36,859 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:27:36,859 - DEBUG - PAYLOAD: b'{"from": {"email": "your_email@gmail.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "De : Braille Converter\\n\\nVotre code de r\\u00e9initialisation est : 523331\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:27:36,859 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:27:37,371 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:27:37,371 - ERROR - Network or unexpected error with SendGrid: HTTP Error 401: Unauthorized
+2025-04-10 23:27:37,371 - INFO - Falling back to Gmail SMTP...
+2025-04-10 23:27:39,089 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 23:27:45,215 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:27:45,215 - DEBUG - Password validation successful for password of length 11
+2025-04-10 23:27:47,359 - DEBUG - CAPTCHA verification successful: 5 + 7 = 12
+2025-04-10 23:27:47,361 - DEBUG - Database connection established
+2025-04-10 23:27:47,563 - ERROR - User registration failed: Email elarbiwajdi0@gmail.com already exists
+2025-04-10 23:27:47,564 - DEBUG - Database connection closed
+2025-04-10 23:27:47,564 - ERROR - Registration error (ValueError): Cet email est déjà utilisé.
+2025-04-10 23:28:16,784 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 23:28:16,784 - DEBUG - Password validation successful for password of length 11
+2025-04-10 23:28:18,747 - DEBUG - CAPTCHA verification successful: 4 + 9 = 13
+2025-04-10 23:28:18,748 - DEBUG - Database connection established
+2025-04-10 23:28:18,951 - ERROR - User registration failed: Email wajdiwaj03@gmail.com already exists
+2025-04-10 23:28:18,951 - DEBUG - Database connection closed
+2025-04-10 23:28:18,951 - ERROR - Registration error (ValueError): Cet email est déjà utilisé.
+2025-04-10 23:28:21,422 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 23:28:21,423 - DEBUG - Database connection established
+2025-04-10 23:28:21,424 - DEBUG - Database connection closed
+2025-04-10 23:28:21,424 - DEBUG - Database connection established
+2025-04-10 23:28:21,433 - INFO - 2FA code generated for user_id 3: 236148
+2025-04-10 23:28:21,433 - DEBUG - Database connection closed
+2025-04-10 23:28:21,450 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:28:21,450 - DEBUG - PAYLOAD: b'{"from": {"email": "your_email@gmail.com"}, "subject": "Code de v\\u00e9rification pour connexion par email", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "De : Braille Converter\\n\\nVotre code de v\\u00e9rification est : 236148\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:28:21,450 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:28:22,074 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:28:22,074 - ERROR - Network or unexpected error with SendGrid: HTTP Error 401: Unauthorized
+2025-04-10 23:28:22,075 - INFO - Falling back to Gmail SMTP...
+2025-04-10 23:28:23,561 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 23:28:30,239 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 23:28:30,243 - DEBUG - Database connection established
+2025-04-10 23:28:30,253 - DEBUG - Database connection closed
+2025-04-10 23:28:30,254 - DEBUG - Database connection established
+2025-04-10 23:28:30,254 - DEBUG - Database connection closed
+2025-04-10 23:28:32,080 - WARNING - Login failed for email: wajdiwaj03@gmail.com - incorrect credentials
+2025-04-10 23:28:34,643 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 23:28:34,644 - DEBUG - Database connection established
+2025-04-10 23:28:34,645 - DEBUG - Database connection closed
+2025-04-10 23:28:34,646 - DEBUG - Database connection established
+2025-04-10 23:28:34,652 - INFO - 2FA code generated for user_id 3: 891012
+2025-04-10 23:28:34,652 - DEBUG - Database connection closed
+2025-04-10 23:28:34,666 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:28:34,666 - DEBUG - PAYLOAD: b'{"from": {"email": "your_email@gmail.com"}, "subject": "Code de v\\u00e9rification pour connexion par email", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "De : Braille Converter\\n\\nVotre code de v\\u00e9rification est : 891012\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:28:34,666 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:28:35,421 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:28:35,421 - ERROR - Network or unexpected error with SendGrid: HTTP Error 401: Unauthorized
+2025-04-10 23:28:35,421 - INFO - Falling back to Gmail SMTP...
+2025-04-10 23:28:37,094 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 23:29:56,499 - DEBUG - Database connection established
+2025-04-10 23:29:56,506 - INFO - Database tables initialized successfully
+2025-04-10 23:29:56,507 - DEBUG - Database connection closed
+2025-04-10 23:29:56,509 - DEBUG - Database connection established
+2025-04-10 23:29:56,514 - INFO - Database tables initialized successfully
+2025-04-10 23:29:56,514 - DEBUG - Database connection closed
+2025-04-10 23:29:56,897 - DEBUG - Database connection established
+2025-04-10 23:29:56,898 - DEBUG - Database connection closed
+2025-04-10 23:29:56,898 - DEBUG - BrailleUI initialized successfully
+2025-04-10 23:30:16,523 - DEBUG - Database connection established
+2025-04-10 23:30:16,526 - DEBUG - Database connection closed
+2025-04-10 23:30:16,527 - DEBUG - Database connection established
+2025-04-10 23:30:16,528 - DEBUG - Database connection closed
+2025-04-10 23:30:16,730 - DEBUG - Database connection established
+2025-04-10 23:30:16,737 - DEBUG - Database connection closed
+2025-04-10 23:30:18,398 - WARNING - Failed login attempt for email: elarbiwajdi0@gmail.com
+2025-04-10 23:30:19,818 - DEBUG - Database connection established
+2025-04-10 23:30:19,819 - DEBUG - Database connection closed
+2025-04-10 23:30:19,820 - DEBUG - Database connection established
+2025-04-10 23:30:19,830 - INFO - 2FA code generated for user_id 2: 869025
+2025-04-10 23:30:19,830 - DEBUG - Database connection closed
+2025-04-10 23:30:19,849 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:30:19,849 - DEBUG - PAYLOAD: b'{"from": {"email": "no-reply@brailleapp.com"}, "subject": "Code de v\\u00e9rification pour r\\u00e9initialisation du mot de passe", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de v\\u00e9rification est : 869025\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:30:19,849 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:30:26,233 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:30:26,233 - ERROR - SendGrid email sending failed: HTTP Error 401: Unauthorized
+2025-04-10 23:30:27,980 - ERROR - SMTP authentication failed: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials ffacd0b85a97d-39eaf43cd69sm176240f8f.80 - gsmtp')
+2025-04-10 23:30:27,980 - ERROR - Password reset initiation error: Échec de l'authentification SMTP. Vérifiez vos identifiants.
+2025-04-10 23:30:35,949 - DEBUG - Database connection established
+2025-04-10 23:30:35,950 - DEBUG - Database connection closed
+2025-04-10 23:30:35,950 - DEBUG - Database connection established
+2025-04-10 23:30:35,960 - INFO - 2FA code generated for user_id 2: 927137
+2025-04-10 23:30:35,960 - DEBUG - Database connection closed
+2025-04-10 23:30:35,977 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:30:35,977 - DEBUG - PAYLOAD: b'{"from": {"email": "no-reply@brailleapp.com"}, "subject": "Code de v\\u00e9rification pour r\\u00e9initialisation du mot de passe", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de v\\u00e9rification est : 927137\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:30:35,977 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:30:37,281 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:30:37,282 - ERROR - SendGrid email sending failed: HTTP Error 401: Unauthorized
+2025-04-10 23:30:39,773 - ERROR - SMTP authentication failed: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 5b1f17b1804b1-43f204c500bsm70997985e9.0 - gsmtp')
+2025-04-10 23:30:39,773 - ERROR - Password reset initiation error: Échec de l'authentification SMTP. Vérifiez vos identifiants.
+2025-04-10 23:31:04,914 - DEBUG - Database connection established
+2025-04-10 23:31:04,922 - INFO - Database tables initialized successfully
+2025-04-10 23:31:04,923 - DEBUG - Database connection closed
+2025-04-10 23:31:04,925 - DEBUG - Database connection established
+2025-04-10 23:31:04,934 - INFO - Database tables initialized successfully
+2025-04-10 23:31:04,935 - DEBUG - Database connection closed
+2025-04-10 23:31:05,248 - DEBUG - Database connection established
+2025-04-10 23:31:05,248 - DEBUG - Database connection closed
+2025-04-10 23:31:05,249 - DEBUG - BrailleUI initialized successfully
+2025-04-10 23:31:14,304 - DEBUG - Database connection established
+2025-04-10 23:31:14,305 - DEBUG - Database connection closed
+2025-04-10 23:31:14,306 - DEBUG - Database connection established
+2025-04-10 23:31:14,313 - INFO - 2FA code generated for user_id 2: 229660
+2025-04-10 23:31:14,313 - DEBUG - Database connection closed
+2025-04-10 23:31:15,222 - ERROR - SMTP authentication failed: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials ffacd0b85a97d-39eaf445772sm177868f8f.91 - gsmtp')
+2025-04-10 23:31:15,222 - ERROR - Password reset initiation error: Échec de l'authentification SMTP. Vérifiez vos identifiants.
+2025-04-10 23:31:19,763 - ERROR - Error during close event: Cannot operate on a closed database.
+2025-04-10 23:31:37,376 - DEBUG - Database connection established
+2025-04-10 23:31:37,384 - INFO - Database tables initialized successfully
+2025-04-10 23:31:37,385 - DEBUG - Database connection closed
+2025-04-10 23:31:37,387 - DEBUG - Database connection established
+2025-04-10 23:31:37,394 - INFO - Database tables initialized successfully
+2025-04-10 23:31:37,394 - DEBUG - Database connection closed
+ERROR:root:Login error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'generate_jwt_token'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Login error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'

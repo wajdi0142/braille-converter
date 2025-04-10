@@ -67,29 +67,35 @@ class AuthWidget(QWidget):
             }
         """)
 
-        main_layout = QVBoxLayout()
-        main_layout.setAlignment(Qt.AlignCenter)
+        self.main_layout = QVBoxLayout()
+        self.main_layout.setAlignment(Qt.AlignCenter)
 
-        title_label = QLabel("Authentification")
-        title_label.setFont(QFont("Arial", 18, QFont.Bold))
-        title_label.setAlignment(Qt.AlignCenter)
-        main_layout.addWidget(title_label)
-        main_layout.addSpacing(20)
+        # Titre
+        self.title_label = QLabel("Authentification")
+        self.title_label.setFont(QFont("Arial", 18, QFont.Bold))
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.main_layout.addWidget(self.title_label)
+        self.main_layout.addSpacing(20)
 
-        email_layout = QHBoxLayout()
-        email_layout.addWidget(QLabel("Email :"))
+        # Email field
+        self.email_layout = QHBoxLayout()
+        self.email_label = QLabel("Email :")
         self.email_input = QLineEdit()
-        email_layout.addWidget(self.email_input)
-        main_layout.addLayout(email_layout)
+        self.email_layout.addWidget(self.email_label)
+        self.email_layout.addWidget(self.email_input)
+        self.main_layout.addLayout(self.email_layout)
 
-        password_layout = QHBoxLayout()
-        password_layout.addWidget(QLabel("Mot de passe :"))
+        # Password field
+        self.password_layout = QHBoxLayout()
+        self.password_label = QLabel("Mot de passe :")
         self.password_input = QLineEdit()
         self.password_input.setEchoMode(QLineEdit.Password)
-        password_layout.addWidget(self.password_input)
-        main_layout.addLayout(password_layout)
+        self.password_layout.addWidget(self.password_label)
+        self.password_layout.addWidget(self.password_input)
+        self.main_layout.addLayout(self.password_layout)
 
-        button_layout = QHBoxLayout()
+        # Buttons
+        self.button_layout = QHBoxLayout()
         self.login_button = QPushButton("Connexion")
         self.email_auth_button = QPushButton("Connexion par Email")
         self.register_button = QPushButton("Inscription")
@@ -98,13 +104,26 @@ class AuthWidget(QWidget):
         self.email_auth_button.clicked.connect(self.email_auth)
         self.register_button.clicked.connect(self.register)
         self.forgot_password_button.clicked.connect(self.forgot_password)
-        button_layout.addWidget(self.login_button)
-        button_layout.addWidget(self.email_auth_button)
-        button_layout.addWidget(self.register_button)
-        button_layout.addWidget(self.forgot_password_button)
-        main_layout.addLayout(button_layout)
+        self.button_layout.addWidget(self.login_button)
+        self.button_layout.addWidget(self.email_auth_button)
+        self.button_layout.addWidget(self.register_button)
+        self.button_layout.addWidget(self.forgot_password_button)
+        self.main_layout.addLayout(self.button_layout)
 
-        self.setLayout(main_layout)
+        # Status message (initially hidden)
+        self.status_label = QLabel("")
+        self.status_label.setFont(QFont("Arial", 14))
+        self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setVisible(False)  # Hidden by default
+        self.main_layout.addWidget(self.status_label, alignment=Qt.AlignCenter)
+
+        # Logout button (after status message, initially hidden)
+        self.logout_button = QPushButton("Déconnexion")
+        self.logout_button.clicked.connect(self.logout)
+        self.logout_button.setVisible(False)
+        self.main_layout.addWidget(self.logout_button, alignment=Qt.AlignCenter)
+
+        self.setLayout(self.main_layout)
 
     def check_device_auth(self):
         """Check if the device is authenticated."""
@@ -115,8 +134,12 @@ class AuthWidget(QWidget):
                 self.show_logged_in_interface()
                 user_info = {"nom": device_user[1], "email": device_user[2]}
                 self.parent.show_main_interface(self.logged_in_email, user_info)
+            else:
+                self.show_login_interface()
         except Exception as e:
             logging.error(f"Device auth check error: {e}")
+            self.status_label.setText("Erreur d'authentification")
+            self.status_label.setVisible(True)
 
     def validate_email(self, email):
         """Validate email format."""
@@ -307,60 +330,60 @@ class AuthWidget(QWidget):
     def show_logged_in_interface(self):
         """Show the logged-in interface."""
         try:
-            if not all(hasattr(self, attr) for attr in [
-                'email_input', 'password_input', 'login_button', 
-                'email_auth_button', 'register_button', 'forgot_password_button'
-            ]):
-                raise AttributeError("Interface widgets not initialized.")
-            
+            # Hide login-related widgets
+            self.email_label.hide()
             self.email_input.hide()
+            self.password_label.hide()
             self.password_input.hide()
             self.login_button.hide()
             self.email_auth_button.hide()
             self.register_button.hide()
             self.forgot_password_button.hide()
 
-            logout_button = QPushButton("Déconnexion")
-            logout_button.clicked.connect(self.logout)
-            self.layout().addWidget(logout_button, alignment=Qt.AlignCenter)
-
-            welcome_label = QLabel(f"Connecté en tant que {self.logged_in_email}")
-            welcome_label.setFont(QFont("Arial", 14, QFont.Bold))
-            welcome_label.setAlignment(Qt.AlignCenter)
-            self.layout().addWidget(welcome_label, alignment=Qt.AlignCenter)
+            # Show status label and logout button
+            self.status_label.setText(f"Connecté en tant que {self.logged_in_email}")
+            self.status_label.setFont(QFont("Arial", 14, QFont.Bold))
+            self.status_label.setVisible(True)  # Show the status label
+            self.logout_button.setVisible(True)
         except Exception as e:
             logging.error(f"Show logged-in interface error: {e}")
             QMessageBox.critical(self, "Error", f"Failed to show logged-in interface: {e}")
 
-    def logout(self):
-        """Handle user logout."""
+    def show_login_interface(self):
+        """Show the login interface."""
         try:
-            if not all(hasattr(self, attr) for attr in [
-                'email_input', 'password_input', 'login_button', 
-                'email_auth_button', 'register_button', 'forgot_password_button'
-            ]):
-                raise AttributeError("Interface widgets not initialized for logout.")
-            
-            self.db.save_device_auth(self.device_user, None)
-            self.logged_in_email = None
+            # Show login-related widgets
+            self.email_label.show()
             self.email_input.show()
+            self.password_label.show()
             self.password_input.show()
             self.login_button.show()
             self.email_auth_button.show()
             self.register_button.show()
             self.forgot_password_button.show()
-            for i in range(self.layout().count() - 1, 2, -1):
-                item = self.layout().itemAt(i)
-                if item and item.widget():
-                    widget = item.widget()
-                    self.layout().removeWidget(widget)
-                    widget.deleteLater()
+
+            # Hide status label and logout button
+            self.status_label.setVisible(False)  # Hide the status label
+            self.logout_button.setVisible(False)
+        except Exception as e:
+            logging.error(f"Show login interface error: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to show login interface: {e}")
+
+    def logout(self):
+        """Handle user logout."""
+        try:
+            self.db.save_device_auth(self.device_user, None)
+            self.logged_in_email = None
+            self.show_login_interface()
+            QMessageBox.information(self, "Succès", "Déconnexion réussie !")
+            # Emit the logout signal to notify the parent, but the parent will handle visibility
             self.logout_signal.emit()
         except Exception as e:
             logging.error(f"Logout error: {e}")
             QMessageBox.critical(self, "Error", f"Logout failed: {e}")
 
     def logged_in_event(self):
-        """Clear input fields after login."""
+        """Clear input fields and show login interface after logout."""
         self.email_input.clear()
         self.password_input.clear()
+        self.show_login_interface()

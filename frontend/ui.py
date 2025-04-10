@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
     QStatusBar, QSlider, QMenuBar, QMenu, QSpinBox, QInputDialog, QLabel,
     QApplication, QSpacerItem, QSizePolicy
 )
-from PyQt5.QtCore import Qt, QTimer, QEvent, QTime
+from PyQt5.QtCore import Qt, QTimer, QEvent, QTime, QSize
 from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from backend.braille_engine import BrailleEngine
@@ -31,6 +31,7 @@ class BrailleUI(QMainWindow):
         self.app = app
         self.setWindowTitle("Convertisseur Texte ↔ Braille")
         self.setGeometry(100, 100, 1000, 600)
+        self.initial_size = QSize(1000, 600)  # Stocker la taille initiale
 
         self.braille_engine = BrailleEngine()
         self.file_handler = FileHandler()
@@ -145,12 +146,26 @@ class BrailleUI(QMainWindow):
         set_light_mode(self.app)
         self.auth_widget.check_device_auth()
 
-    def show_auth_widget(self):
-        if self.current_email:
-            self.handle_logout()
-        else:
+    def toggle_auth_interface(self):
+        """Toggle between the authentication interface and the main interface with a single click."""
+        # Stocker l'état de maximisation avant de basculer
+        was_maximized = self.isMaximized()
+        current_size = self.size()  # Stocker la taille actuelle
+
+        if self.main_widget.isVisible():
             self.main_widget.hide()
             self.auth_container.show()
+            self.status_bar.showMessage("Espace d'authentification")
+        else:
+            self.auth_container.hide()
+            self.main_widget.show()
+            self.status_bar.showMessage("Retour à l'interface principale")
+
+        # Restaurer l'état de maximisation et la taille
+        if was_maximized:
+            self.showMaximized()
+        else:
+            self.resize(current_size)
 
     def show_main_interface(self, email, user_info):
         self.logged_in_user = self.db.get_utilisateur_by_email(email)
@@ -165,18 +180,35 @@ class BrailleUI(QMainWindow):
         self.auth_button.setToolTip(f"Connecté : {email}")
         self.usage_start_time = QTime.currentTime()
 
+        # Restaurer la taille ou l'état de maximisation après connexion
+        if self.was_maximized:
+            self.showMaximized()
+        else:
+            self.resize(self.current_size)
+
     def handle_logout(self):
+        """Handle logout event without switching to the main interface."""
+        # Stocker l'état de maximisation et la taille avant déconnexion
+        self.was_maximized = self.isMaximized()
+        self.current_size = self.size()
+
         if self.logged_in_user:
             elapsed = self.usage_start_time.secsTo(QTime.currentTime())
             self.db.update_usage_time(self.logged_in_user.id, elapsed)
         self.logged_in_user = None
         self.current_email = None
-        self.main_widget.show()
-        self.auth_container.hide()
+        # Do not switch to main_widget; keep auth_container visible
         self.auth_widget.logged_in_event()
         self.auth_button.setIcon(QIcon("icons/user.png"))
         self.auth_button.setText("Se connecter")
         self.auth_button.setToolTip("Se connecter")
+        self.status_bar.showMessage("Espace d'authentification")
+
+        # Restaurer la taille ou l'état de maximisation après déconnexion
+        if self.was_maximized:
+            self.showMaximized()
+        else:
+            self.resize(self.current_size)
 
     def init_menu_bar(self):
         menu_bar = self.menuBar()
@@ -286,7 +318,7 @@ class BrailleUI(QMainWindow):
         self.toolbar.addWidget(spacer)
 
         self.auth_button = QAction(QIcon("icons/user.png"), "Se connecter", self)
-        self.auth_button.triggered.connect(self.show_auth_widget)
+        self.auth_button.triggered.connect(self.toggle_auth_interface)
         self.auth_button.setToolTip("Se connecter")
         self.toolbar.addAction(self.auth_button)
 
@@ -464,7 +496,6 @@ class BrailleUI(QMainWindow):
         if tab.file_path and tab.file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tiff')):
             return
 
-        # Gestion de la direction d’écriture pour l’arabe
         if "Arabe" in self.table_combo.currentText():
             tab.text_input.setLayoutDirection(Qt.RightToLeft)
             tab.text_output.setLayoutDirection(Qt.RightToLeft)

@@ -13,11 +13,11 @@ FONT_PATH = os.getenv("FONT_PATH", r"C:\Users\LENOVO\Downloads\Noto_Sans_Symbols
 LOU_TRANSLATE_PATH = os.getenv("LOU_TRANSLATE_PATH", r"C:\msys64\usr\bin\lou_translate.exe")
 TABLES_DIRECTORY = os.getenv("TABLES_DIR", r"C:\msys64\usr\share\liblouis\tables")
 
-# Tables de conversion
+# Tables de conversion harmonisées
 TABLE_NAMES = {
-    "Arabe": "ar-ar-g2.ctb",
-    "Français (Grade 2)": "fr-bfu-g2.ctb",
-    "Français (Grade 1)": "fr-bfu-comp8.utb",
-    "Anglais (Grade 1)": "en-us-g1.ctb",
-    "Anglais (Grade 2)": "en-us-g2.ctb",
+    "Arabe (Grade 1)": "ar-ar-g1.utb",  # Arabe grade 1
+    "Français (Grade 1)": "fr-bfu-comp6.utb",  # Français grade 1
+    "Français (Grade 2)": "fr-bfu-g2.ctb",  # Français grade 2
+    "Anglais (Grade 1)": "en-us-g1.ctb",  # Anglais grade 1
+    "Anglais (Grade 2)": "en-us-g2.ctb",  # Anglais grade 2
 }

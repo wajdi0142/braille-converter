@@ -81,8 +81,8 @@ class BrailleUI(QMainWindow):
         table_layout = QHBoxLayout()
         self.table_combo_label = QLabel("Langue (Table) :")
         self.table_combo = QComboBox()
-        self.table_combo.addItems(self.available_tables.keys())
-        self.table_combo.setCurrentText("Français (grade 1)")
+        self.table_combo.addItems(self.available_tables.keys())  # Charge les tables disponibles
+        self.table_combo.setCurrentText("Français (Grade 1)")  # Par défaut
         self.table_combo.currentTextChanged.connect(self.debounce_update)
         table_layout.addWidget(self.table_combo_label)
         table_layout.addWidget(self.table_combo)
@@ -464,6 +464,14 @@ class BrailleUI(QMainWindow):
         if tab.file_path and tab.file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.tiff')):
             return
 
+        # Gestion de la direction d’écriture pour l’arabe
+        if "Arabe" in self.table_combo.currentText():
+            tab.text_input.setLayoutDirection(Qt.RightToLeft)
+            tab.text_output.setLayoutDirection(Qt.RightToLeft)
+        else:
+            tab.text_input.setLayoutDirection(Qt.LeftToRight)
+            tab.text_output.setLayoutDirection(Qt.LeftToRight)
+
         tab.text_input.blockSignals(True)
         tab.text_output.blockSignals(True)
         if self.conversion_mode == "text_to_braille":
@@ -494,14 +502,26 @@ class BrailleUI(QMainWindow):
         tab.text_output.blockSignals(False)
 
     def test_conversion(self):
-        test_text = "Voici la version mise à jour, intégrant l’analyse"  # Texte français accentué
         tab = self.tab_widget.currentWidget()
-        if tab:
-            self.table_combo.setCurrentText("Français (grade 1)")
-            tab.text_input.setPlainText(test_text)
-            self.update_conversion()
-            print(f"Texte : {test_text}")
-            print(f"Braille : {tab.text_output.toPlainText()}")
+        if not tab:
+            return
+        
+        tests = {
+            "Français (Grade 1)": "Voici la version mise à jour, intégrant l’analyse",
+            "Arabe (Grade 1)": "مرحبا بالعالم",
+            "Anglais (Grade 1)": "Hello World",
+            "Anglais (Grade 2)": "Hello World",
+            "Français (Grade 2)": "Bonjour le monde"
+        }
+        
+        selected_table = self.table_combo.currentText()
+        test_text = tests.get(selected_table, "Test text")
+        
+        tab.text_input.setPlainText(test_text)
+        self.update_conversion()
+        print(f"Langue : {selected_table}")
+        print(f"Texte : {test_text}")
+        print(f"Braille : {tab.text_output.toPlainText()}")
 
     def reverse_conversion(self):
         tab = self.tab_widget.currentWidget()

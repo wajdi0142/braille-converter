@@ -56,79 +56,90 @@ class FileHandler:
             return FALLBACK_FONT
 
     def image_to_braille(self, image_path, width=40, height=20, mode="hybrid", contrast=1.0, threshold=None):
-        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        if image is None:
-            raise ValueError("Impossible de charger l'image.")
+        try:
+            # Lire le fichier image en tant que tableau de bytes pour éviter les problèmes d'encodage de chemin
+            with open(image_path, 'rb') as f:
+                image_data = np.frombuffer(f.read(), np.uint8)
 
-        image_pil = Image.fromarray(image)
-        enhancer = ImageEnhance.Contrast(image_pil)
-        image_pil = enhancer.enhance(contrast)
-        image = np.array(image_pil)
+            # Décoder l'image avec OpenCV
+            image = cv2.imdecode(image_data, cv2.IMREAD_GRAYSCALE)
+            if image is None:
+                raise ValueError("Impossible de charger l'image. Le fichier est peut-être corrompu ou dans un format non supporté.")
 
-        extracted_text = ""
-        braille_text = ""
+            # Conversion en image PIL pour ajuster le contraste
+            image_pil = Image.fromarray(image)
+            enhancer = ImageEnhance.Contrast(image_pil)
+            image_pil = enhancer.enhance(contrast)
+            image = np.array(image_pil)
 
-        if mode in ["text", "hybrid"]:
-            try:
-                extracted_text = pytesseract.image_to_string(image, lang='fra', config='--psm 6 --oem 1')
-                if extracted_text.strip():
-                    selected_table = self.braille_engine.get_available_tables().get("Français (grade 1)", "fr-bfu-comp6.utb")
-                    braille_text = self.braille_engine.to_braille(extracted_text, selected_table, line_width=width)
-                    if mode == "text":
-                        return extracted_text, braille_text
-            except Exception as e:
-                print(f"Erreur OCR : {e}")
+            extracted_text = ""
+            braille_text = ""
 
-        if mode in ["graphic", "hybrid"]:
-            if threshold is None:
-                _, image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            else:
-                image = cv2.Canny(image, threshold, threshold * 2)
+            if mode in ["text", "hybrid"]:
+                try:
+                    # Utiliser pytesseract pour extraire le texte
+                    extracted_text = pytesseract.image_to_string(image, lang='fra', config='--psm 6 --oem 1')
+                    if extracted_text.strip():
+                        selected_table = self.braille_engine.get_available_tables().get("Français (grade 1)", "fr-bfu-comp6.utb")
+                        braille_text = self.braille_engine.to_braille(extracted_text, selected_table, line_width=width)
+                        if mode == "text":
+                            return extracted_text, braille_text
+                except Exception as e:
+                    print(f"Erreur OCR : {e}")
 
-            image = cv2.resize(image, (width * 2, height * 4))
+            if mode in ["graphic", "hybrid"]:
+                if threshold is None:
+                    _, image = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                else:
+                    image = cv2.Canny(image, threshold, threshold * 2)
 
-            braille_grid = []
-            gcode_lines = ["G21", "G90", "M3 S1000"]
-            has_content = False
+                image = cv2.resize(image, (width * 2, height * 4))
 
-            for y in range(0, height * 4, 4):
-                braille_row = []
-                for x in range(0, width * 2, 2):
-                    block = image[y:y+4, x:x+2]
-                    if block.shape != (4, 2):
-                        braille_row.append(' ')
-                        continue
+                braille_grid = []
+                gcode_lines = ["G21", "G90", "M3 S1000"]
+                has_content = False
 
-                    dots = 0
-                    for i in range(4):
-                        for j in range(2):
-                            if block[i, j] > 128:
-                                dots |= 1 << (i * 2 + j)
-                    braille_char = chr(0x2800 + dots)
-                    braille_row.append(braille_char)
+                for y in range(0, height * 4, 4):
+                    braille_row = []
+                    for x in range(0, width * 2, 2):
+                        block = image[y:y+4, x:x+2]
+                        if block.shape != (4, 2):
+                            braille_row.append(' ')
+                            continue
 
-                    if dots > 0:
-                        has_content = True
-                        gcode_x = x / 2.0
-                        gcode_y = (height * 4 - y) / 4.0
-                        gcode_lines.append(f"G01 X{gcode_x:.2f} Y{gcode_y:.2f} Z-0.1")
+                        dots = 0
+                        for i in range(4):
+                            for j in range(2):
+                                if block[i, j] > 128:
+                                    dots |= 1 << (i * 2 + j)
+                        braille_char = chr(0x2800 + dots)
+                        braille_row.append(braille_char)
 
-                braille_grid.append(''.join(braille_row))
+                        if dots > 0:
+                            has_content = True
+                            gcode_x = x / 2.0
+                            gcode_y = (height * 4 - y) / 4.0
+                            gcode_lines.append(f"G01 X{gcode_x:.2f} Y{gcode_y:.2f} Z-0.1")
 
-            gcode_lines.append("M5")
-            self.last_gcode = "\n".join(gcode_lines) if has_content else None
+                    braille_grid.append(''.join(braille_row))
 
-            graphic_braille = '\n'.join(braille_grid).strip()
-            if mode == "hybrid" and braille_text and graphic_braille:
-                braille_text += "\n\n--- Graphique ---\n" + graphic_braille
-            elif mode == "graphic":
-                braille_text = graphic_braille
+                gcode_lines.append("M5")
+                self.last_gcode = "\n".join(gcode_lines) if has_content else None
 
-        if braille_text:
-            braille_lines = [line.rstrip() for line in braille_text.split('\n') if line.strip()]
-            braille_text = '\n'.join(braille_lines)
+                graphic_braille = '\n'.join(braille_grid).strip()
+                if mode == "hybrid" and braille_text and graphic_braille:
+                    braille_text += "\n\n--- Graphique ---\n" + graphic_braille
+                elif mode == "graphic":
+                    braille_text = graphic_braille
 
-        return extracted_text, braille_text if braille_text else ""
+            if braille_text:
+                braille_lines = [line.rstrip() for line in braille_text.split('\n') if line.strip()]
+                braille_text = '\n'.join(braille_lines)
+
+            return extracted_text, braille_text if braille_text else ""
+
+        except Exception as e:
+            raise ValueError(f"Erreur lors du traitement de l'image : {str(e)}")
 
     def save_text(self, file_path, text):
         with open(file_path, 'w', encoding='utf-8') as f:

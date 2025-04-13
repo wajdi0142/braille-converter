@@ -623,10 +623,29 @@ class BrailleUI(QMainWindow):
             self.tab_widget.setCurrentIndex(self.tab_widget.count() - 1)
 
     def import_image(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Importer une image", "",
-            "Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp *.tiff)")
+        # Liste complète des formats d'image supportés
+        image_formats = (
+            "Images (*.png *.jpg *.jpeg *.gif *.webp *.bmp *.tiff *.ico *.jfif *.heic *.heif "
+            "*.avif *.apng *.pnm *.pgm *.ppm *.pbm *.svg *.tga *.exr *.jp2 *.j2k *.jpf *.jpx "
+            "*.jpm *.mj2 *.hdr *.pic *.wdp *.hdp *.jng *.mng *.pfm *.sr *.ras *.rgb *.rgba *.rgbz)"
+        )
+        
+        file_path, _ = QFileDialog.getOpenFileName(self, "Importer une image", "", image_formats)
         if not file_path:
             return
+
+        # Vérifier si le fichier existe
+        if not os.path.exists(file_path):
+            QMessageBox.critical(self, "Erreur", "Le fichier image n'existe pas.")
+            return
+
+        # Vérifier les permissions de lecture
+        if not os.access(file_path, os.R_OK):
+            QMessageBox.critical(self, "Erreur", "Permission refusée pour lire le fichier image.")
+            return
+
+        # Log pour débogage
+        print(f"Importation de l'image : {file_path}")
 
         dialog = QInputDialog(self)
         dialog.setWindowTitle("Options de conversion d'image")
@@ -637,7 +656,7 @@ class BrailleUI(QMainWindow):
         
         if not dialog.exec_():
             return
-            
+                
         mode_map = {
             "Texte (OCR)": "text",
             "Graphique (Courbes/Formes)": "graphic",

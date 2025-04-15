@@ -3,7 +3,9 @@ import pdfplumber
 from docx import Document
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from PyQt5.QtGui import QPainter, QFont
 from PyQt5.QtPrintSupport import QPrinter
 from PIL import Image, ImageEnhance
@@ -13,6 +15,11 @@ import cv2
 import re
 import tempfile
 import unicodedata
+
+# Configuration des polices (alignée avec votre configuration)
+BRAILLE_FONT_NAME = "Noto Sans Braille"
+FALLBACK_FONT = "Arial"
+FONT_PATH = os.getenv("FONT_PATH", r"C:\Users\LENOVO\Downloads\Noto_Sans_Symbols_2\NotoSansSymbols2-Regular.ttf")
 
 class FileHandler:
     def __init__(self):
@@ -154,6 +161,7 @@ class FileHandler:
 
             extracted_text = ""
             braille_text = ""
+            graphic_braille = ""
 
             # Ajuster le contraste pour l'OCR et le mode graphique
             image_pil = Image.fromarray(image)
@@ -198,14 +206,16 @@ class FileHandler:
 
             if mode in ['graphic', 'hybrid']:
                 # Prétraitement pour le mode graphique
-                image = cv2.bitwise_not(image)  # Inverser pour que les lignes sombres deviennent blanches
-                image = cv2.GaussianBlur(image, (5, 5), 0)
+                image_graphic = cv2.bitwise_not(image)  # Inverser pour que les lignes sombres deviennent blanches
+                image_graphic = cv2.GaussianBlur(image_graphic, (5, 5), 0)
                 # Utiliser un seuillage adaptatif pour mieux capturer la courbe
-                image = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-                edges = cv2.Canny(image, 30, 100)  # Ajuster les seuils pour une détection fine
+                image_graphic = cv2.adaptiveThreshold(image_graphic, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+                # Ajuster les seuils de Canny pour une détection plus fine
+                edges = cv2.Canny(image_graphic, 20, 80)
                 kernel = np.ones((3, 3), np.uint8)
-                edges = cv2.dilate(edges, kernel, iterations=2)  # Dilater pour une courbe plus continue
-                image = cv2.resize(edges, (width * 2, height * 4), interpolation=cv2.INTER_NEAREST)
+                edges = cv2.dilate(edges, kernel, iterations=3)  # Plus d'itérations pour une courbe plus continue
+                # Augmenter la résolution pour une meilleure précision
+                image_graphic = cv2.resize(edges, (width * 2, height * 4), interpolation=cv2.INTER_NEAREST)
 
                 braille_grid = []
                 gcode_lines = ["G21", "G90", "M3 S1000"]
@@ -214,7 +224,7 @@ class FileHandler:
                 for y in range(0, height * 4, 4):
                     braille_row = []
                     for x in range(0, width * 2, 2):
-                        block = image[y:y+4, x:x+2]
+                        block = image_graphic[y:y+4, x:x+2]
                         if block.shape != (4, 2):
                             braille_row.append(' ')
                             continue
@@ -242,17 +252,19 @@ class FileHandler:
                 self.last_gcode = "\n".join(gcode_lines) if has_content else None
 
                 graphic_braille = '\n'.join(braille_grid).strip()
-                if mode == "hybrid":
-                    if braille_text and graphic_braille:
-                        braille_text = braille_text + "\n\n--- Graphique ---\n" + graphic_braille
-                    elif graphic_braille:
-                        braille_text = "--- Graphique ---\n" + graphic_braille
-                    elif braille_text:
-                        braille_text = braille_text
-                    else:
-                        braille_text = "Erreur lors de la conversion en Braille."
-                elif mode == "graphic":
-                    braille_text = graphic_braille
+
+            # Combiner les parties texte et graphique pour le mode "hybrid"
+            if mode == "hybrid":
+                if braille_text.strip() and graphic_braille.strip():
+                    braille_text = f"{braille_text}\n\n--- Graphique ---\n{graphic_braille}"
+                elif braille_text.strip():
+                    braille_text = braille_text
+                elif graphic_braille.strip():
+                    braille_text = f"--- Graphique ---\n{graphic_braille}"
+                else:
+                    braille_text = "Erreur lors de la conversion en Braille."
+            elif mode == "graphic":
+                braille_text = graphic_braille
 
             if braille_text:
                 braille_lines = [line.rstrip() for line in braille_text.split('\n') if line.strip()]
@@ -273,8 +285,48 @@ class FileHandler:
 
     def export_pdf(self, file_path, text_document, braille_text, save_type):
         try:
-            doc = SimpleDocTemplate(file_path, pagesize=A4)
+            # Extraire le nom du fichier à partir du chemin
+            file_name = os.path.basename(file_path)
+            print(f"Exporting PDF to: {file_path} with title: {file_name}")
+
+            # Créer le document PDF avec le titre défini comme le nom du fichier
+            doc = SimpleDocTemplate(file_path, pagesize=A4, title=file_name)
+
+            # Enregistrer une police qui prend en charge les caractères Braille Unicode
+            font_registered = False
+            print(f"Recherche de la police {BRAILLE_FONT_NAME} à : {FONT_PATH}")
+            if os.path.exists(FONT_PATH):
+                try:
+                    pdfmetrics.registerFont(TTFont(BRAILLE_FONT_NAME, FONT_PATH))
+                    font_registered = True
+                    print(f"Police {BRAILLE_FONT_NAME} enregistrée avec succès.")
+                except Exception as e:
+                    print(f"Erreur lors de l'enregistrement de la police {BRAILLE_FONT_NAME} : {str(e)}")
+            else:
+                print(f"Police {BRAILLE_FONT_NAME} non trouvée à : {FONT_PATH}")
+                print("Avertissement : La police pour le Braille n'est pas disponible. Le Braille peut ne pas s'afficher correctement.")
+
             styles = getSampleStyleSheet()
+            # Définir un style personnalisé pour le texte Braille
+            if font_registered:
+                braille_style = ParagraphStyle(
+                    name='BrailleStyle',
+                    parent=styles['BodyText'],
+                    fontName=BRAILLE_FONT_NAME,
+                    fontSize=12,
+                    leading=14
+                )
+            else:
+                # Fallback sur une police par défaut
+                braille_style = ParagraphStyle(
+                    name='BrailleStyle',
+                    parent=styles['BodyText'],
+                    fontName=FALLBACK_FONT,  # Utilisation du fallback défini dans la configuration
+                    fontSize=12,
+                    leading=14
+                )
+                print(f"Utilisation de la police de secours '{FALLBACK_FONT}'. Le Braille ne s'affichera pas correctement sans {BRAILLE_FONT_NAME}.")
+
             story = []
 
             if save_type in ['Texte + Braille', 'Texte uniquement']:
@@ -287,10 +339,15 @@ class FileHandler:
             if save_type in ['Texte + Braille', 'Braille uniquement']:
                 if braille_text.strip():
                     story.append(Paragraph("Braille:", styles['Heading1']))
-                    story.append(Paragraph(braille_text.replace('\n', '<br/>'), styles['BodyText']))
+                    story.append(Paragraph(braille_text.replace('\n', '<br/>'), braille_style))
+                else:
+                    story.append(Paragraph("Braille:", styles['Heading1']))
+                    story.append(Paragraph("Aucun texte Braille disponible.", styles['BodyText']))
 
             doc.build(story)
+            print(f"PDF exporté avec succès : {file_path}")
         except Exception as e:
+            print(f"Erreur lors de l'exportation PDF {file_path}: {str(e)}")
             raise Exception(f"Erreur lors de l'exportation PDF {file_path}: {str(e)}")
 
     def export_docx(self, file_path, text_document, braille_text, save_type):
@@ -331,7 +388,8 @@ class FileHandler:
                 print("Erreur : Impossible d'initialiser l'impression.")
                 return False
 
-            font = QFont("Arial", 12)
+            # Utiliser une police qui prend en charge les caractères Braille pour l'impression
+            font = QFont(BRAILLE_FONT_NAME, 12)  # Utilisation de la police configurée
             painter.setFont(font)
 
             y_position = 50

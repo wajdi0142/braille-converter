@@ -81,7 +81,7 @@ class BrailleUI(QMainWindow):
         super().__init__()
         self.app = app
         self.setWindowTitle("Convertisseur Texte ↔ Braille")
-        self.setGeometry(100, 100, 1000, 600)
+        self.setGeometry(100, 100, 1050, 600)
         self.initial_size = QSize(1000, 600)
 
         self.braille_engine = BrailleEngine()

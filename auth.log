@@ -326,3 +326,9 @@ ERROR:root:Login error: table sessions has no column named refresh_token
 2025-04-10 23:02:17,133 - INFO - Falling back to Gmail SMTP...
 2025-04-10 23:02:19,351 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
 2025-04-10 23:03:08,438 - WARNING - Password reset 2FA code verification failed for user: elarbiwajdi0@gmail.com
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Login error: 'Database' object has no attribute 'verify_user'
+ERROR:root:Registration error: Database.ajouter_utilisateur() takes 3 positional arguments but 4 were given

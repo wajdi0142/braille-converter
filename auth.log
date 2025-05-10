@@ -1,0 +1,334 @@
+ERROR:root:Login error: name 'random' is not defined
+ERROR:root:Login error: name 'random' is not defined
+ERROR:root:Login error: name 'random' is not defined
+ERROR:root:Email send error: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials ffacd0b85a97d-39eae96c6b8sm80443f8f.37 - gsmtp')
+ERROR:root:Login error: table sessions has no column named refresh_token
+ERROR:root:Email send error: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials ffacd0b85a97d-39eae964073sm83960f8f.9 - gsmtp')
+ERROR:root:Email send error: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials ffacd0b85a97d-39eae979620sm81730f8f.52 - gsmtp')
+ERROR:root:Login error: table sessions has no column named refresh_token
+2025-04-10 22:30:24,464 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 22:30:24,464 - WARNING - SMTP credentials not set. Email sending will be simulated.
+2025-04-10 22:30:24,471 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 22:30:24,968 - DEBUG - Login interface displayed
+2025-04-10 22:30:24,968 - DEBUG - No device authentication found, showing login interface
+2025-04-10 22:30:39,982 - DEBUG - Password strength updated: 25%
+2025-04-10 22:30:40,382 - DEBUG - Password strength updated: 25%
+2025-04-10 22:30:40,793 - DEBUG - Password strength updated: 25%
+2025-04-10 22:30:41,097 - DEBUG - Password strength updated: 25%
+2025-04-10 22:30:41,451 - DEBUG - Password strength updated: 25%
+2025-04-10 22:30:41,908 - DEBUG - Password strength updated: 50%
+2025-04-10 22:30:42,154 - DEBUG - Password strength updated: 50%
+2025-04-10 22:30:42,280 - DEBUG - Password strength updated: 75%
+2025-04-10 22:30:42,518 - DEBUG - Password strength updated: 75%
+2025-04-10 22:30:42,725 - DEBUG - Password strength updated: 75%
+2025-04-10 22:30:44,485 - DEBUG - Password strength updated: 100%
+2025-04-10 22:30:46,642 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:30:46,861 - WARNING - SMTP disabled. Simulated email sent to elarbiwajdi0@gmail.com. Code: 448418
+2025-04-10 22:30:56,199 - WARNING - 2FA code verification failed for user: elarbiwajdi0@gmail.com
+2025-04-10 22:43:51,269 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 22:43:51,269 - WARNING - SMTP credentials not set. Email sending will be simulated.
+2025-04-10 22:43:51,283 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 22:43:51,788 - DEBUG - Login interface displayed
+2025-04-10 22:43:51,788 - DEBUG - No device authentication found, showing login interface
+2025-04-10 22:44:23,447 - DEBUG - Password strength updated: 25%
+2025-04-10 22:44:24,822 - DEBUG - Password strength updated: 25%
+2025-04-10 22:44:25,142 - DEBUG - Password strength updated: 25%
+2025-04-10 22:44:25,351 - DEBUG - Password strength updated: 25%
+2025-04-10 22:44:25,556 - DEBUG - Password strength updated: 25%
+2025-04-10 22:44:26,169 - DEBUG - Password strength updated: 50%
+2025-04-10 22:44:26,404 - DEBUG - Password strength updated: 50%
+2025-04-10 22:44:26,537 - DEBUG - Password strength updated: 75%
+2025-04-10 22:44:26,793 - DEBUG - Password strength updated: 75%
+2025-04-10 22:44:27,020 - DEBUG - Password strength updated: 75%
+2025-04-10 22:44:27,893 - DEBUG - Password strength updated: 100%
+2025-04-10 22:44:30,198 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:44:30,480 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:44:30,480 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code d\'authentification \\u00e0 deux facteurs", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code 2FA est : 339366\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:44:30,480 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:44:31,752 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:44:31,752 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:44:36,930 - WARNING - 2FA code verification failed for user: elarbiwajdi0@gmail.com
+2025-04-10 22:44:38,939 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:44:38,965 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:44:38,965 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de v\\u00e9rification pour connexion par email", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de v\\u00e9rification est : 865937\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:44:38,965 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:44:39,512 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:44:39,513 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:45:35,676 - WARNING - Email auth 2FA code verification failed for user: elarbiwajdi0@gmail.com
+2025-04-10 22:45:44,981 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 22:45:44,981 - WARNING - SMTP credentials not set. Email sending will be simulated.
+2025-04-10 22:45:44,986 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 22:45:45,205 - DEBUG - Login interface displayed
+2025-04-10 22:45:45,205 - DEBUG - No device authentication found, showing login interface
+2025-04-10 22:46:07,277 - DEBUG - Password strength updated: 25%
+2025-04-10 22:46:07,848 - DEBUG - Password strength updated: 25%
+2025-04-10 22:46:08,087 - DEBUG - Password strength updated: 25%
+2025-04-10 22:46:08,308 - DEBUG - Password strength updated: 25%
+2025-04-10 22:46:08,521 - DEBUG - Password strength updated: 25%
+2025-04-10 22:46:09,160 - DEBUG - Password strength updated: 50%
+2025-04-10 22:46:09,411 - DEBUG - Password strength updated: 50%
+2025-04-10 22:46:09,562 - DEBUG - Password strength updated: 75%
+2025-04-10 22:46:09,757 - DEBUG - Password strength updated: 75%
+2025-04-10 22:46:09,978 - DEBUG - Password strength updated: 75%
+2025-04-10 22:46:11,841 - DEBUG - Password strength updated: 100%
+2025-04-10 22:46:11,970 - DEBUG - Password strength updated: 100%
+2025-04-10 22:46:13,638 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:46:16,779 - WARNING - Login failed for email: elarbiwajdi0@gmail.com - incorrect credentials
+2025-04-10 22:46:21,795 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:46:21,796 - DEBUG - Password validation successful for password of length 12
+2025-04-10 22:46:25,331 - DEBUG - CAPTCHA verification successful: 6 + 10 = 16
+2025-04-10 22:46:25,541 - ERROR - Registration error (ValueError): Cet email est déjà utilisé.
+2025-04-10 22:46:33,561 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:46:33,627 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:46:33,627 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de v\\u00e9rification pour connexion par email", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de v\\u00e9rification est : 571458\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:46:33,627 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:46:34,351 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:46:34,351 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:46:51,680 - WARNING - Email auth 2FA code verification failed for user: elarbiwajdi0@gmail.com
+2025-04-10 22:47:07,357 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:47:07,357 - DEBUG - Password validation successful for password of length 12
+2025-04-10 22:47:09,523 - DEBUG - CAPTCHA verification successful: 4 + 7 = 11
+2025-04-10 22:47:10,826 - DEBUG - Password strength updated: 0%
+2025-04-10 22:47:10,826 - INFO - User registered successfully: wajdiwaj03@gmail.com
+2025-04-10 22:47:15,736 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:16,192 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:16,482 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:16,678 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:20,048 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:20,328 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:20,530 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:20,795 - DEBUG - Password strength updated: 75%
+2025-04-10 22:47:21,293 - DEBUG - Password strength updated: 75%
+2025-04-10 22:47:22,053 - DEBUG - Password strength updated: 100%
+2025-04-10 22:47:22,168 - DEBUG - Password strength updated: 100%
+2025-04-10 22:47:23,867 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:47:25,977 - WARNING - Login failed for email: wajdiwaj03@gmail.com - incorrect credentials
+2025-04-10 22:47:27,737 - DEBUG - Password strength updated: 100%
+2025-04-10 22:47:28,249 - DEBUG - Password strength updated: 75%
+2025-04-10 22:47:28,278 - DEBUG - Password strength updated: 75%
+2025-04-10 22:47:28,310 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:28,339 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:28,380 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:28,412 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:28,441 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:28,471 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:28,501 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:28,533 - DEBUG - Password strength updated: 0%
+2025-04-10 22:47:31,308 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:31,820 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:32,103 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:32,311 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:32,564 - DEBUG - Password strength updated: 25%
+2025-04-10 22:47:33,780 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:34,046 - DEBUG - Password strength updated: 50%
+2025-04-10 22:47:34,179 - DEBUG - Password strength updated: 75%
+2025-04-10 22:47:34,466 - DEBUG - Password strength updated: 75%
+2025-04-10 22:47:34,729 - DEBUG - Password strength updated: 75%
+2025-04-10 22:47:35,702 - DEBUG - Password strength updated: 100%
+2025-04-10 22:47:37,303 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:47:39,190 - WARNING - Login failed for email: wajdiwaj03@gmail.com - incorrect credentials
+2025-04-10 22:47:40,413 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:47:44,798 - DEBUG - CAPTCHA verification successful: 4 + 2 = 6
+2025-04-10 22:47:44,816 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:47:44,816 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 108386\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:47:44,816 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:47:45,241 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:47:45,241 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:49:24,872 - WARNING - Password reset 2FA code verification failed for user: wajdiwaj03@gmail.com
+2025-04-10 22:49:26,786 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:49:29,265 - WARNING - Login failed for email: wajdiwaj03@gmail.com - incorrect credentials
+2025-04-10 22:49:32,320 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:49:36,601 - DEBUG - CAPTCHA verification successful: 5 + 9 = 14
+2025-04-10 22:49:36,622 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:49:36,622 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 816154\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:49:36,622 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:49:38,201 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:49:38,201 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:50:02,698 - WARNING - Password reset 2FA code verification failed for user: wajdiwaj03@gmail.com
+2025-04-10 22:50:08,523 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:50:08,545 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:50:08,545 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de v\\u00e9rification pour connexion par email", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de v\\u00e9rification est : 643916\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:50:08,545 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:50:08,922 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:50:08,922 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:51:30,949 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 22:51:30,949 - WARNING - SMTP credentials not set. Email sending will be simulated.
+2025-04-10 22:51:30,956 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 22:51:31,676 - DEBUG - Login interface displayed
+2025-04-10 22:51:31,676 - DEBUG - No device authentication found, showing login interface
+2025-04-10 22:51:40,640 - DEBUG - Password strength updated: 25%
+2025-04-10 22:51:41,250 - DEBUG - Password strength updated: 25%
+2025-04-10 22:51:41,557 - DEBUG - Password strength updated: 25%
+2025-04-10 22:51:41,777 - DEBUG - Password strength updated: 25%
+2025-04-10 22:51:41,988 - DEBUG - Password strength updated: 25%
+2025-04-10 22:51:42,726 - DEBUG - Password strength updated: 50%
+2025-04-10 22:51:43,744 - DEBUG - Password strength updated: 25%
+2025-04-10 22:51:44,590 - DEBUG - Password strength updated: 50%
+2025-04-10 22:51:44,817 - DEBUG - Password strength updated: 50%
+2025-04-10 22:51:44,944 - DEBUG - Password strength updated: 75%
+2025-04-10 22:51:45,108 - DEBUG - Password strength updated: 75%
+2025-04-10 22:51:45,296 - DEBUG - Password strength updated: 75%
+2025-04-10 22:51:46,111 - DEBUG - Password strength updated: 100%
+2025-04-10 22:51:47,604 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:51:49,545 - WARNING - Login failed for email: wajdiwaj03@gmail.com - incorrect credentials
+2025-04-10 22:51:52,895 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:51:55,860 - DEBUG - CAPTCHA verification successful: 4 + 8 = 12
+2025-04-10 22:51:55,930 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:51:55,930 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 983207\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:51:55,930 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:51:56,362 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:51:56,362 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:52:01,203 - WARNING - Password reset 2FA code verification failed for user: wajdiwaj03@gmail.com
+2025-04-10 22:52:04,023 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:52:04,024 - DEBUG - Password validation successful for password of length 11
+2025-04-10 22:52:06,204 - DEBUG - CAPTCHA verification successful: 9 + 5 = 14
+2025-04-10 22:52:06,406 - ERROR - Registration error (ValueError): Cet email est déjà utilisé.
+2025-04-10 22:52:13,238 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:52:15,544 - DEBUG - CAPTCHA verification successful: 6 + 8 = 14
+2025-04-10 22:52:15,571 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:52:15,571 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 198992\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:52:15,571 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:52:16,040 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:52:16,040 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:52:30,963 - DEBUG - Password validation successful for password of length 12
+2025-04-10 22:52:32,808 - INFO - Password reset successful for user: wajdiwaj03@gmail.com
+2025-04-10 22:52:35,751 - DEBUG - Password strength updated: 0%
+2025-04-10 22:52:36,386 - DEBUG - Password strength updated: 0%
+2025-04-10 22:52:37,037 - DEBUG - Password strength updated: 25%
+2025-04-10 22:52:37,576 - DEBUG - Password strength updated: 25%
+2025-04-10 22:52:37,837 - DEBUG - Password strength updated: 25%
+2025-04-10 22:52:38,048 - DEBUG - Password strength updated: 25%
+2025-04-10 22:52:38,230 - DEBUG - Password strength updated: 25%
+2025-04-10 22:52:38,489 - DEBUG - Password strength updated: 25%
+2025-04-10 22:52:38,777 - DEBUG - Password strength updated: 25%
+2025-04-10 22:52:39,016 - DEBUG - Password strength updated: 50%
+2025-04-10 22:52:39,592 - DEBUG - Password strength updated: 75%
+2025-04-10 22:52:39,815 - DEBUG - Password strength updated: 75%
+2025-04-10 22:52:40,627 - DEBUG - Password strength updated: 100%
+2025-04-10 22:52:42,435 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:52:44,985 - WARNING - Login failed for email: wajdiwaj03@gmail.com - incorrect credentials
+2025-04-10 22:52:47,543 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:52:49,094 - DEBUG - CAPTCHA verification successful: 2 + 2 = 4
+2025-04-10 22:52:49,114 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:52:49,114 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "wajdiwaj03@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 499784\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:52:49,114 - DEBUG - HEADERS: {'Authorization': 'Bearer votre_cle_api_sendgrid', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:52:50,291 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:52:50,291 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:52:55,503 - WARNING - Password reset 2FA code verification failed for user: wajdiwaj03@gmail.com
+2025-04-10 22:55:05,220 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 22:55:05,225 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 22:55:05,439 - DEBUG - Login interface displayed
+2025-04-10 22:55:05,439 - DEBUG - No device authentication found, showing login interface
+2025-04-10 22:55:18,517 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:19,000 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:19,254 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:19,907 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:20,135 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:20,407 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:20,718 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:20,939 - DEBUG - Password strength updated: 50%
+2025-04-10 22:55:21,516 - DEBUG - Password strength updated: 75%
+2025-04-10 22:55:21,696 - DEBUG - Password strength updated: 75%
+2025-04-10 22:55:22,481 - DEBUG - Password strength updated: 100%
+2025-04-10 22:55:24,222 - DEBUG - Email validation for 'wajdiwaj03@gmail.com': Valid
+2025-04-10 22:55:29,282 - ERROR - Login error (ValueError): Trop de tentatives échouées. Veuillez réessayer dans 15 minutes.
+2025-04-10 22:55:42,735 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:43,210 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:43,393 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:43,576 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:43,773 - DEBUG - Password strength updated: 25%
+2025-04-10 22:55:44,447 - DEBUG - Password strength updated: 50%
+2025-04-10 22:55:44,800 - DEBUG - Password strength updated: 50%
+2025-04-10 22:55:44,922 - DEBUG - Password strength updated: 75%
+2025-04-10 22:55:45,744 - DEBUG - Password strength updated: 75%
+2025-04-10 22:55:46,277 - DEBUG - Password strength updated: 75%
+2025-04-10 22:55:46,518 - DEBUG - Password strength updated: 75%
+2025-04-10 22:55:47,228 - DEBUG - Password strength updated: 100%
+2025-04-10 22:55:49,157 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:55:50,886 - WARNING - Login failed for email: elarbiwajdi0@gmail.com - incorrect credentials
+2025-04-10 22:55:52,223 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:55:53,926 - DEBUG - CAPTCHA verification successful: 2 + 5 = 7
+2025-04-10 22:55:53,999 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:55:54,007 - DEBUG - PAYLOAD: b'{"from": {"email": "your_email@gmail.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 291641\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:55:54,008 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:55:56,964 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:55:56,964 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:55:56,964 - INFO - Falling back to Gmail SMTP...
+2025-04-10 22:56:01,439 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 22:56:27,891 - WARNING - Password reset 2FA code verification failed for user: elarbiwajdi0@gmail.com
+2025-04-10 22:56:54,634 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 22:56:54,640 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 22:56:54,961 - DEBUG - Login interface displayed
+2025-04-10 22:56:54,961 - DEBUG - No device authentication found, showing login interface
+2025-04-10 22:57:06,701 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:06,899 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:07,097 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:07,339 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:07,532 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:07,709 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:07,982 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:08,177 - DEBUG - Password strength updated: 50%
+2025-04-10 22:57:08,353 - DEBUG - Password strength updated: 50%
+2025-04-10 22:57:10,397 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:57:12,057 - WARNING - Login failed for email: elarbiwajdi0@gmail.com - incorrect credentials
+2025-04-10 22:57:14,337 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:15,228 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:15,506 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:15,702 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:15,907 - DEBUG - Password strength updated: 25%
+2025-04-10 22:57:16,896 - DEBUG - Password strength updated: 50%
+2025-04-10 22:57:17,143 - DEBUG - Password strength updated: 50%
+2025-04-10 22:57:17,302 - DEBUG - Password strength updated: 75%
+2025-04-10 22:57:17,539 - DEBUG - Password strength updated: 75%
+2025-04-10 22:57:17,763 - DEBUG - Password strength updated: 75%
+2025-04-10 22:57:18,648 - DEBUG - Password strength updated: 100%
+2025-04-10 22:57:21,092 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 22:57:21,352 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 22:57:21,352 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code d\'authentification \\u00e0 deux facteurs", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code 2FA est : 929007\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 22:57:21,352 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 22:57:21,850 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 22:57:21,850 - ERROR - SendGrid email send error: HTTP Error 401: Unauthorized
+2025-04-10 22:57:21,850 - INFO - Falling back to Gmail SMTP...
+2025-04-10 22:57:23,483 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 23:00:36,459 - DEBUG - Device user retrieved: LENOVO
+2025-04-10 23:00:36,464 - DEBUG - AuthWidget UI initialized successfully
+2025-04-10 23:00:36,883 - DEBUG - Login interface displayed
+2025-04-10 23:00:36,883 - DEBUG - No device authentication found, showing login interface
+2025-04-10 23:00:50,580 - DEBUG - Password strength updated: 25%
+2025-04-10 23:00:51,034 - DEBUG - Password strength updated: 25%
+2025-04-10 23:00:51,609 - DEBUG - Password strength updated: 25%
+2025-04-10 23:00:51,940 - DEBUG - Password strength updated: 25%
+2025-04-10 23:00:52,368 - DEBUG - Password strength updated: 25%
+2025-04-10 23:00:52,884 - DEBUG - Password strength updated: 50%
+2025-04-10 23:00:53,129 - DEBUG - Password strength updated: 50%
+2025-04-10 23:00:53,262 - DEBUG - Password strength updated: 75%
+2025-04-10 23:00:53,469 - DEBUG - Password strength updated: 75%
+2025-04-10 23:00:54,470 - DEBUG - Password strength updated: 100%
+2025-04-10 23:00:56,491 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:00:58,139 - WARNING - Login failed for email: elarbiwajdi0@gmail.com - incorrect credentials
+2025-04-10 23:01:00,061 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:01:01,845 - DEBUG - CAPTCHA verification successful: 3 + 4 = 7
+2025-04-10 23:01:01,920 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:01:01,920 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 235069\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:01:01,920 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:01:03,655 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:01:03,655 - ERROR - Network or unexpected error with SendGrid: HTTP Error 401: Unauthorized
+2025-04-10 23:01:03,655 - INFO - Falling back to Gmail SMTP...
+2025-04-10 23:01:05,678 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 23:02:05,154 - WARNING - Password reset 2FA code verification failed for user: elarbiwajdi0@gmail.com
+2025-04-10 23:02:13,754 - DEBUG - Email validation for 'elarbiwajdi0@gmail.com': Valid
+2025-04-10 23:02:16,466 - DEBUG - CAPTCHA verification successful: 5 + 10 = 15
+2025-04-10 23:02:16,486 - DEBUG - POST Request: https://api.sendgrid.com/v3/mail/send
+2025-04-10 23:02:16,486 - DEBUG - PAYLOAD: b'{"from": {"email": "votre_email@domaine.com"}, "subject": "Code de r\\u00e9initialisation de mot de passe", "personalizations": [{"to": [{"email": "elarbiwajdi0@gmail.com"}]}], "content": [{"type": "text/plain", "value": "Votre code de r\\u00e9initialisation est : 971735\\nCe code est valide pendant 10 minutes."}]}'
+2025-04-10 23:02:16,486 - DEBUG - HEADERS: {'Authorization': 'Bearer SG.YourSendGridAPIKeyHere', 'User-agent': 'sendgrid/6.11.0;python', 'Accept': 'application/json', 'Content-type': 'application/json'}
+2025-04-10 23:02:17,133 - DEBUG - POST Response: 401 b'{"errors":[{"message":"The provided authorization grant is invalid, expired, or revoked","field":null,"help":null}]}'
+2025-04-10 23:02:17,133 - ERROR - Network or unexpected error with SendGrid: HTTP Error 401: Unauthorized
+2025-04-10 23:02:17,133 - INFO - Falling back to Gmail SMTP...
+2025-04-10 23:02:19,351 - ERROR - SMTP authentication failed. Check your SMTP_USER and SMTP_PASSWORD.
+2025-04-10 23:03:08,438 - WARNING - Password reset 2FA code verification failed for user: elarbiwajdi0@gmail.com
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Device auth check error: 'Database' object has no attribute 'get_device_user'
+ERROR:root:Login error: 'Database' object has no attribute 'verify_user'
+ERROR:root:Registration error: Database.ajouter_utilisateur() takes 3 positional arguments but 4 were given

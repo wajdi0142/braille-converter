@@ -1,0 +1,78 @@
+2025-05-11 22:12:23,891 - DEBUG - BrailleUI instancié
+2025-05-11 22:12:24,226 - DEBUG - Starting update_conversion
+2025-05-11 22:12:24,226 - DEBUG - Starting sync_text_areas
+2025-05-11 22:12:24,227 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-11 22:12:24,227 - DEBUG - Text changed, updating Braille
+2025-05-11 22:12:24,229 - DEBUG - Restoring cursor position to: 0
+2025-05-11 22:12:24,230 - DEBUG - Cursor restored to: line 1, col 0
+2025-05-11 22:12:24,230 - DEBUG - Finished sync_text_areas
+2025-05-11 22:12:24,230 - DEBUG - Starting sync_text_areas
+2025-05-11 22:12:24,230 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-11 22:12:24,231 - DEBUG - Finished sync_text_areas
+2025-05-11 22:12:24,327 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-12 01:03:45,073 - DEBUG - BrailleUI instancié
+2025-05-12 01:03:45,455 - DEBUG - Starting sync_text_areas
+2025-05-12 01:03:45,455 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 01:03:45,455 - DEBUG - Text changed, updating Braille
+2025-05-12 01:03:45,456 - WARNING - Ligne trop longue: '\u2802\u2829\u2825\u282e\u2836\u2825\u282e\u2835\u2825\u2820\u2824\u2821\u282e\u2833\u2820\u282c\u2825\u2820\u2823\u282f\u282e\u2836\u2825\u2832\u2834\u2829\u2833\u2833\u2825\u2835\u2832\u280a\u2814\u2825\u2838\u2834\u2825\u2820\u2814\u2820\u2802\u2832\u2821\u2829\u282c\u282c\u2825\u2820\u2821' (longueur: 49, max: 33)
+2025-05-12 01:03:45,457 - DEBUG - Restored cursor position to 0
+2025-05-12 01:03:45,457 - DEBUG - Finished sync_text_areas
+2025-05-12 01:03:45,457 - DEBUG - Starting sync_text_areas
+2025-05-12 01:03:45,457 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 01:03:45,457 - DEBUG - Finished sync_text_areas
+2025-05-12 01:03:45,886 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-12 01:55:42,487 - DEBUG - BrailleUI instancié
+2025-05-12 01:55:43,381 - DEBUG - Starting sync_text_areas
+2025-05-12 01:55:43,383 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 01:55:43,383 - DEBUG - Text changed, updating Braille
+2025-05-12 01:55:43,383 - WARNING - Ligne trop longue: '\u2802\u2829\u2825\u282e\u2836\u2825\u282e\u2835\u2825\u2820\u2824\u2821\u282e\u2833\u2820\u282c\u2825\u2820\u2823\u282f\u282e\u2836\u2825\u2832\u2834\u2829\u2833\u2833\u2825\u2835\u2832\u280a\u2814\u2825\u2838\u2834\u2825\u2820\u2814\u2820\u2802\u2832\u2821\u2829\u282c\u282c\u2825\u2820\u2821' (longueur: 49, max: 33)
+2025-05-12 01:55:43,384 - DEBUG - Restored cursor position to 0
+2025-05-12 01:55:43,384 - DEBUG - Finished sync_text_areas
+2025-05-12 01:55:43,384 - DEBUG - Starting sync_text_areas
+2025-05-12 01:55:43,385 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 01:55:43,385 - DEBUG - Finished sync_text_areas
+2025-05-12 01:55:44,125 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-12 01:56:18,641 - DEBUG - BrailleUI instancié
+2025-05-12 01:56:18,866 - DEBUG - Starting sync_text_areas
+2025-05-12 01:56:18,866 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 01:56:18,866 - DEBUG - Text changed, updating Braille
+2025-05-12 01:56:18,867 - WARNING - Ligne trop longue: '\u2802\u2829\u2825\u282e\u2836\u2825\u282e\u2835\u2825\u2820\u2824\u2821\u282e\u2833\u2820\u282c\u2825\u2820\u2823\u282f\u282e\u2836\u2825\u2832\u2834\u2829\u2833\u2833\u2825\u2835\u2832\u280a\u2814\u2825\u2838\u2834\u2825\u2820\u2814\u2820\u2802\u2832\u2821\u2829\u282c\u282c\u2825\u2820\u2821' (longueur: 49, max: 33)
+2025-05-12 01:56:18,867 - DEBUG - Restored cursor position to 0
+2025-05-12 01:56:18,867 - DEBUG - Finished sync_text_areas
+2025-05-12 01:56:18,867 - DEBUG - Starting sync_text_areas
+2025-05-12 01:56:18,867 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 01:56:18,867 - DEBUG - Finished sync_text_areas
+2025-05-12 01:56:19,115 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-12 12:49:41,643 - DEBUG - BrailleUI instancié
+2025-05-12 12:49:41,960 - DEBUG - Starting sync_text_areas
+2025-05-12 12:49:41,960 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 12:49:41,960 - DEBUG - Text changed, updating Braille
+2025-05-12 12:49:41,960 - WARNING - Ligne trop longue: '\u2802\u2829\u2825\u282e\u2836\u2825\u282e\u2835\u2825\u2820\u2824\u2821\u282e\u2833\u2820\u282c\u2825\u2820\u2823\u282f\u282e\u2836\u2825\u2832\u2834\u2829\u2833\u2833\u2825\u2835\u2832\u280a\u2814\u2825\u2838\u2834\u2825\u2820\u2814\u2820\u2802\u2832\u2821\u2829\u282c\u282c\u2825\u2820\u2821' (longueur: 49, max: 33)
+2025-05-12 12:49:41,961 - DEBUG - Restored cursor position to 0
+2025-05-12 12:49:41,961 - DEBUG - Finished sync_text_areas
+2025-05-12 12:49:41,961 - DEBUG - Starting sync_text_areas
+2025-05-12 12:49:41,961 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 12:49:41,961 - DEBUG - Finished sync_text_areas
+2025-05-12 12:49:42,330 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-12 12:50:10,794 - DEBUG - BrailleUI instancié
+2025-05-12 12:50:11,067 - DEBUG - Starting sync_text_areas
+2025-05-12 12:50:11,068 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 12:50:11,068 - DEBUG - Text changed, updating Braille
+2025-05-12 12:50:11,068 - WARNING - Ligne trop longue: '\u2802\u2829\u2825\u282e\u2836\u2825\u282e\u2835\u2825\u2820\u2824\u2821\u282e\u2833\u2820\u282c\u2825\u2820\u2823\u282f\u282e\u2836\u2825\u2832\u2834\u2829\u2833\u2833\u2825\u2835\u2832\u280a\u2814\u2825\u2838\u2834\u2825\u2820\u2814\u2820\u2802\u2832\u2821\u2829\u282c\u282c\u2825\u2820\u2821' (longueur: 49, max: 33)
+2025-05-12 12:50:11,068 - DEBUG - Restored cursor position to 0
+2025-05-12 12:50:11,068 - DEBUG - Finished sync_text_areas
+2025-05-12 12:50:11,068 - DEBUG - Starting sync_text_areas
+2025-05-12 12:50:11,068 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 12:50:11,068 - DEBUG - Finished sync_text_areas
+2025-05-12 12:50:11,348 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-12 12:51:13,709 - DEBUG - BrailleUI instancié
+2025-05-12 12:51:14,018 - DEBUG - Starting sync_text_areas
+2025-05-12 12:51:14,019 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 12:51:14,019 - DEBUG - Text changed, updating Braille
+2025-05-12 12:51:14,019 - WARNING - Ligne trop longue: '\u2802\u2829\u2825\u282e\u2836\u2825\u282e\u2835\u2825\u2820\u2824\u2821\u282e\u2833\u2820\u282c\u2825\u2820\u2823\u282f\u282e\u2836\u2825\u2832\u2834\u2829\u2833\u2833\u2825\u2835\u2832\u280a\u2814\u2825\u2838\u2834\u2825\u2820\u2814\u2820\u2802\u2832\u2821\u2829\u282c\u282c\u2825\u2820\u2821' (longueur: 49, max: 33)
+2025-05-12 12:51:14,019 - DEBUG - Restored cursor position to 0
+2025-05-12 12:51:14,019 - DEBUG - Finished sync_text_areas
+2025-05-12 12:51:14,019 - DEBUG - Starting sync_text_areas
+2025-05-12 12:51:14,019 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-12 12:51:14,019 - DEBUG - Finished sync_text_areas
+2025-05-12 12:51:14,390 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'

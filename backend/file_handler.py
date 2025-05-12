@@ -2,8 +2,9 @@ import os
 import pdfplumber
 from docx import Document
 from reportlab.lib.units import mm
-from PyQt5.QtGui import QPainter, QFont
+from PyQt5.QtGui import QPainter, QFont, QTextDocument, QFontDatabase, QTextBlockFormat, QTextCursor, QTextCharFormat
 from PyQt5.QtPrintSupport import QPrinter
+from PyQt5.QtCore import Qt, QRectF
 from PIL import Image, ImageEnhance
 import pytesseract
 import numpy as np
@@ -19,6 +20,7 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER, TA_JUSTIFY
 from xml.sax.saxutils import escape
+from reportlab.pdfgen import canvas
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -221,227 +223,164 @@ class FileHandler:
         except Exception as e:
             raise Exception(f"Erreur lors de la sauvegarde : {str(e)}")
 
-    def export_pdf(self, file_path, text_document, braille_text, save_type, font_name=BRAILLE_FONT_NAME, author=None, doc_name="Document"):
+    def export_pdf(self, file_path, text_doc, braille_text, save_type, font_name, doc_name, line_width=33, line_spacing=1.2, indent=0):
+        """
+        Exporte le contenu texte et/ou Braille en PDF avec une mise en page améliorée et un rendu Braille optimisé.
+        
+        Args:
+            file_path (str): Chemin du fichier PDF à générer.
+            text_doc (QTextDocument): Document texte de l'entrée (contenant les styles riches).
+            braille_text (str): Texte Braille à exporter.
+            save_type (str): Type de contenu ("Texte + Braille", "Braille uniquement", "Texte uniquement").
+            font_name (str): Nom de la police à utiliser (doit prendre en charge Braille).
+            doc_name (str): Nom du document pour le PDF.
+            line_width (int): Largeur maximale des lignes en caractères.
+            line_spacing (float): Espacement des lignes (par exemple, 1.2 pour un peu plus d'espace).
+            indent (int): Retrait en millimètres.
+        
+        Returns:
+            bool: True si l'exportation réussit, False sinon.
+        """
         try:
-            # Step 1: Font handling
-            text_font = TEXT_FONT_NAME  # Use Helvetica for text (supports bold/italic)
-            braille_font = font_name
-            font_paths = {
-                "Helvetica": "C:/Windows/Fonts/helveticaneue.ttf",  # Exemple pour Windows
-                "Noto Sans Braille": "C:/Users/LENOVO/Downloads/Noto_Sans_Symbols_2/NotoSansBraille-Regular.ttf"  # Ajuster ce chemin
-            }
+            # Configurer le journal
+            logging.debug(f"Exportation PDF vers: {file_path}, save_type: {save_type}, font_name: {font_name}, "
+                         f"taille texte: {len(text_doc.toPlainText())}, taille Braille: {len(braille_text)}")
 
-            # Register text font (Helvetica, which supports bold/italic)
-            if text_font not in pdfmetrics.getRegisteredFontNames():
-                logging.debug(f"Text font {text_font} not registered, using fallback {FALLBACK_FONT}")
-                text_font = FALLBACK_FONT
+            # Vérifier le chemin du fichier
+            if not file_path or not os.access(os.path.dirname(file_path) or '.', os.W_OK):
+                logging.error(f"Chemin de fichier invalide ou non accessible: {file_path}")
+                raise ValueError("Chemin de fichier invalide ou non accessible")
 
-            # Register Braille font
-            if braille_font not in pdfmetrics.getRegisteredFontNames():
-                font_path = font_paths.get(braille_font)
-                if font_path and os.path.exists(font_path):
-                    try:
-                        pdfmetrics.registerFont(TTFont(braille_font, font_path))
-                        logging.debug(f"Police '{braille_font}' enregistrée avec succès depuis {font_path}")
-                    except Exception as e:
-                        logging.error(f"Erreur lors de l'enregistrement de la police '{braille_font}': {str(e)}")
-                        braille_font = FALLBACK_FONT
-                else:
-                    logging.warning(f"Police '{braille_font}' non trouvée à {font_path}, utilisation de '{FALLBACK_FONT}'")
-                    braille_font = FALLBACK_FONT
+            # Créer un printer pour PDF avec une résolution élevée
+            printer = QPrinter(QPrinter.HighResolution)
+            printer.setOutputFormat(QPrinter.PdfFormat)
+            printer.setOutputFileName(file_path)
+            printer.setDocName(doc_name)
+            printer.setPageMargins(40, 50, 40, 50, QPrinter.Millimeter)  # Marges optimisées
+            printer.setResolution(300)  # Résolution élevée pour une meilleure qualité
 
-            if braille_font not in pdfmetrics.getRegisteredFontNames():
-                logging.warning(f"Police '{braille_font}' non disponible, utilisation de '{FALLBACK_FONT}'")
-                braille_font = FALLBACK_FONT
+            # Créer un nouveau document pour le rendu
+            doc = QTextDocument()
 
-            # Step 2: Configure PDF document
-            doc = SimpleDocTemplate(
-                file_path,
-                pagesize=A4,
-                leftMargin=10 * mm,
-                rightMargin=10 * mm,
-                topMargin=10 * mm,
-                bottomMargin=10 * mm,
-                author=author if author else "Utilisateur non connecté",
-                title=doc_name,
-                subject="Conversion Texte/Braille",
-                creator="Convertisseur Texte ↔ Braille"
-            )
+            # Choisir une police Braille optimisée
+            font_db = QFontDatabase()
+            braille_font_name = "FreeMono"  # Police principale pour des points lisibles
+            fallback_fonts = ["Braille", "Noto Sans Symbols", "Apple Braille", "DejaVu Sans"]
+            for font in [braille_font_name] + fallback_fonts:
+                if font_db.hasFamily(font):
+                    braille_font_name = font
+                    break
+            else:
+                logging.warning(f"Aucune police Braille compatible trouvée, utilisation de {font_name} par défaut")
+                braille_font_name = font_name
 
-            # Step 3: Define styles
-            styles = getSampleStyleSheet()
-            title_style = ParagraphStyle(
-                name="Title",
-                fontName=text_font,
-                fontSize=14,
-                spaceAfter=12,
-                alignment=TA_CENTER
-            )
-            text_style = ParagraphStyle(
-                name="Text",
-                fontName=text_font,
-                fontSize=12,
-                spaceAfter=6,
-                leading=12 * 1.2
-            )
-            braille_style = ParagraphStyle(
-                name="Braille",
-                fontName=braille_font,
-                fontSize=12,
-                spaceAfter=6,
-                leading=12 * 1.2
-            )
+            logging.debug(f"Police Braille utilisée: {braille_font_name}")
 
-            # Step 4: Initialize story and pagination parameters
-            story = []
-            lines_per_page = self.parent.lines_per_page if hasattr(self, 'parent') and self.parent else 25
-            line_width = self.parent.line_width if hasattr(self, 'parent') and self.parent else 80
-            indent_mm = self.parent.indent if hasattr(self, 'parent') and self.parent else 0
-            line_spacing = self.parent.line_spacing if hasattr(self, 'parent') and self.parent else 1.0
+            # Configurer les polices
+            text_font = QFont(braille_font_name, 14)  # Taille augmentée pour une meilleure lisibilité
+            braille_font = QFont(braille_font_name, 14)
+            text_font.setStyleStrategy(QFont.PreferAntialias)
+            braille_font.setStyleStrategy(QFont.PreferAntialias)
+            braille_font.setHintingPreference(QFont.PreferFullHinting)
 
-            # Helper function to wrap text
-            def _wrap_text(self, text, width):
-                """Wrap text to a specified width."""
-                if not text:
-                    return ""
-                words = text.split()
+            # Configurer les formats
+            block_format_title = QTextBlockFormat()
+            block_format_title.setAlignment(Qt.AlignCenter)
+            block_format_title.setLineHeight(150, QTextBlockFormat.ProportionalHeight)
+
+            block_format_text = QTextBlockFormat()
+            block_format_text.setLineHeight(line_spacing * 120, QTextBlockFormat.ProportionalHeight)
+            block_format_text.setAlignment(Qt.AlignCenter)
+
+            block_format_braille = QTextBlockFormat()
+            block_format_braille.setLineHeight(line_spacing * 120, QTextBlockFormat.ProportionalHeight)
+            block_format_braille.setAlignment(Qt.AlignLeft)
+            block_format_braille.setTextIndent(indent * 2.83465)
+
+            # Créer un curseur
+            cursor = QTextCursor(doc)
+
+            # Limite pour éviter les blocages
+            max_chars = 100000
+            if len(text_doc.toPlainText()) + len(braille_text) > max_chars:
+                logging.warning(f"Document trop volumineux, troncature à {max_chars} caractères")
+                text_doc = QTextDocument()
+                text_doc.setPlainText(text_doc.toPlainText()[:max_chars//2])
+                braille_text = braille_text[:max_chars//2]
+
+            # Fonction pour appliquer line_width
+            def wrap_text(text, width):
                 lines = []
-                current_line = ""
-                for word in words:
-                    if len(current_line) + len(word) + 1 <= width:
-                        current_line += (word + " ") if current_line else word
-                    else:
-                        lines.append(current_line.rstrip())
-                        current_line = word + " "
-                if current_line:
-                    lines.append(current_line.rstrip())
-                return "<br/>".join(lines)
+                for line in text.split('\n'):
+                    while len(line) > width:
+                        lines.append(line[:width])
+                        line = line[width:]
+                    lines.append(line)
+                return '\n'.join(lines)
 
-            # Step 5: Add title
-            story.append(Paragraph(doc_name, title_style))
-            story.append(Spacer(1, 12))
+            # Gérer le contenu selon save_type
+            if save_type == "Texte + Braille":
+                # En-tête centré
+                title_format = QTextCharFormat()
+                title_format.setFont(text_font)
+                title_format.setFontPointSize(16)
+                cursor.setBlockFormat(block_format_title)
+                cursor.insertText(f"{doc_name}\n", title_format)
+                cursor.insertText("Texte ⇄ Braille\n", title_format)
 
-            # Step 6: Export text content
-            if save_type in ["Texte + Braille", "Texte uniquement"]:
-                block = text_document.begin()
-                block_count = 0
-                while block.isValid():
-                    if block.text().strip():
-                        # Determine alignment
-                        align = block.blockFormat().alignment()
-                        alignment = TA_LEFT
-                        if int(align) & 2:
-                            alignment = TA_RIGHT
-                        elif int(align) & 4:
-                            alignment = TA_CENTER
-                        elif int(align) & 8:
-                            alignment = TA_JUSTIFY
+                # Texte riche (centré)
+                text_cursor = QTextCursor(text_doc)
+                text_cursor.select(QTextCursor.Document)
+                cursor.setBlockFormat(block_format_text)
+                cursor.insertFragment(text_cursor.selection())
 
-                        # Create paragraph style
-                        p_style = ParagraphStyle(
-                            name=f"TextBlock{block_count}",
-                            parent=text_style,
-                            alignment=alignment,
-                            leftIndent=indent_mm * mm,
-                            leading=12 * line_spacing
-                        )
+                # Séparateur stylisé
+                cursor.movePosition(QTextCursor.End)
+                separator_format = QTextCharFormat()
+                separator_format.setFont(text_font)
+                cursor.insertText("\n\n=== Section Braille ===\n", separator_format)
+                cursor.insertText("-" * 60 + "\n", separator_format)
 
-                        # Build paragraph text with formatting
-                        paragraph_text = []
-                        it = block.begin()
-                        current_style = []
-                        while not it.atEnd():
-                            fragment = it.fragment()
-                            if fragment.isValid():
-                                char_format = fragment.charFormat()
-                                text = fragment.text()
-                                new_style = []
-                                if char_format.fontWeight() == QFont.Bold:
-                                    new_style.append("b")
-                                if char_format.fontItalic():
-                                    new_style.append("i")
-                                if char_format.fontUnderline():
-                                    new_style.append("u")
+                # Braille (aligné à gauche)
+                logging.debug(f"Caractères Braille avant insertion (codes Unicode): {[hex(ord(c)) for c in braille_text[:10]]}")
+                formatted_braille = wrap_text(braille_text, line_width)
+                braille_char_format = QTextCharFormat()
+                braille_char_format.setFont(braille_font)
+                cursor.setBlockFormat(block_format_braille)
+                cursor.insertText(formatted_braille, braille_char_format)
 
-                                # Handle style changes
-                                for style in new_style:
-                                    if style not in current_style:
-                                        paragraph_text.append(f"<{style}>")
-                                        current_style.append(style)
-                                for style in current_style[:]:
-                                    if style not in new_style:
-                                        paragraph_text.append(f"</{style}>")
-                                        current_style.remove(style)
+            elif save_type == "Braille uniquement":
+                formatted_braille = wrap_text(braille_text, line_width)
+                braille_char_format = QTextCharFormat()
+                braille_char_format.setFont(braille_font)
+                cursor.setBlockFormat(block_format_braille)
+                cursor.insertText(formatted_braille, braille_char_format)
 
-                                paragraph_text.append(escape(text))
-                                current_style = new_style[:]
-                            it += 1
+            else:  # Texte uniquement
+                text_cursor = QTextCursor(text_doc)
+                text_cursor.select(QTextCursor.Document)
+                cursor.setBlockFormat(block_format_text)
+                cursor.insertFragment(text_cursor.selection())
 
-                        # Close remaining tags
-                        for style in current_style[::-1]:
-                            paragraph_text.append(f"</{style}>")
+            # Définir la police par défaut
+            doc.setDefaultFont(braille_font)
+            doc.setDocumentMargin(20)
 
-                        full_text = "".join(paragraph_text)
-                        logging.debug(f"Paragraph text: {full_text[:100]}...")
-                        wrapped_text = self._wrap_text(full_text, line_width)
-                        paragraph_html = f"<para>{wrapped_text}</para>" if wrapped_text else "<para> </para>"
-                        story.append(Paragraph(paragraph_html, p_style))
+            # Ajuster la taille du contenu pour éviter les débordements
+            page_rect = QRectF(printer.pageRect(QPrinter.DevicePixel))
+            doc.setPageSize(page_rect.size())
 
-                    block = block.next()
-                    block_count += 1
-                    if block_count % lines_per_page == 0 and block.isValid():
-                        story.append(Paragraph("<para>--- Page Break ---</para>", text_style))
-                        story.append(PageBreak())
+            # Journaliser un échantillon
+            logging.debug(f"Échantillon Braille (100 premiers caractères): {repr(braille_text[:100])}")
 
-            # Step 7: Export Braille content
-            if save_type in ["Texte + Braille", "Braille uniquement"]:
-                if save_type == "Texte + Braille":
-                    story.append(Spacer(1, 24))
-                    story.append(Paragraph("<para>=== Section Braille ===</para>", text_style))
-                    story.append(Spacer(1, 24))
-
-                braille_lines = braille_text.split('\n')
-                current_page_lines = []
-                line_count = 0
-                for line in braille_lines:
-                    if line_count >= lines_per_page:
-                        story.append(Paragraph("<para>--- Page Break ---</para>", braille_style))
-                        story.append(PageBreak())
-                        for saved_line in current_page_lines:
-                            p_style = ParagraphStyle(
-                                name=f"BrailleLine{line_count}",
-                                parent=braille_style,
-                                leftIndent=indent_mm * mm,
-                                leading=12 * line_spacing
-                            )
-                            wrapped_line = self._wrap_text(saved_line, line_width)
-                            story.append(Paragraph(f"<para>{wrapped_line}</para>", p_style))
-                        current_page_lines = []
-                        line_count = 0
-                    if line.strip():
-                        current_page_lines.append(escape(line))
-                        line_count += 1
-
-                if current_page_lines:
-                    for saved_line in current_page_lines:
-                        p_style = ParagraphStyle(
-                            name=f"BrailleLine{line_count}",
-                            parent=braille_style,
-                            leftIndent=indent_mm * mm,
-                            leading=12 * line_spacing
-                        )
-                        wrapped_line = self._wrap_text(saved_line, line_width)
-                        story.append(Paragraph(f"<para>{wrapped_line}</para>", p_style))
-
-            # Step 8: Build the PDF
-            logging.debug(f"Exporting PDF to {file_path} with {len(story)} story elements")
-            doc.build(story)
-            print(f"Document PDF exporté avec succès : {file_path}")
+            # Rendre le document
+            doc.print_(printer)
+            logging.info(f"PDF exporté avec succès: {file_path}")
+            return True
 
         except Exception as e:
-            logging.error(f"Erreur lors de l'exportation en PDF : {str(e)}")
-            raise Exception(f"Erreur lors de l'exportation en PDF : {str(e)}")
-
+            logging.error(f"Erreur lors de l'exportation PDF: {str(e)}")
+            return False
     def export_docx(self, file_path, text_document, braille_text, save_type, font_name=BRAILLE_FONT_NAME, doc_name="Document"):
         try:
             from docx.shared import Pt, Inches

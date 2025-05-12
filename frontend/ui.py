@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
     QApplication, QSpacerItem, QSizePolicy, QProgressDialog, QFontComboBox
 )
 from PyQt5.QtCore import Qt, QTimer, QEvent, QTime, QSize, QThread, pyqtSignal
-from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat
+from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat, QFontMetrics
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from backend.braille_engine import BrailleEngine
 from backend.file_handler import FileHandler
@@ -44,6 +44,7 @@ class StderrToLog:
     def flush(self):
         sys.__stderr__.flush()
 
+# Configuration de Tesseract pour l'OCR (nouveau pour supporter l'importation d'images)
 pytesseract.pytesseract.tesseract_cmd = shutil.which("tesseract") or r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 if not os.path.exists(pytesseract.pytesseract.tesseract_cmd):
     raise Exception("Tesseract-OCR n'est pas installé ou inaccessible.")
@@ -54,6 +55,95 @@ for lang in required_langs:
     if not os.path.exists(os.path.join(tessdata_dir, f"{lang}.traineddata")):
         print(f"Avertissement : Le fichier de langue '{lang}.traineddata' est manquant.")
 
+class BrailleEngine:
+    def __init__(self):
+        self.tables = {
+            "Français (grade 1)": "fr-grade1",
+            "Arabe (grade 1)": "ar-grade1",
+            # Ajoutez d'autres tables selon vos besoins
+        }
+        # Basic Braille mapping for demonstration (ASCII to Braille Unicode)
+        self.braille_map = {
+            'a': '\u2801', 'b': '\u2803', 'c': '\u2809', 'd': '\u2819', 'e': '\u2811',
+            'f': '\u280b', 'g': '\u281b', 'h': '\u2813', 'i': '\u280a', 'j': '\u281a',
+            'k': '\u2805', 'l': '\u2807', 'm': '\u280d', 'n': '\u281d', 'o': '\u2815',
+            'p': '\u280f', 'q': '\u281f', 'r': '\u2817', 's': '\u280e', 't': '\u281e',
+            'u': '\u2825', 'v': '\u2827', 'w': '\u283a', 'x': '\u282d', 'y': '\u283d',
+            'z': '\u2835', ' ': '\u2800', '.': '\u2822', ',': '\u2802',
+            # Add more mappings as needed (e.g., numbers, punctuation)
+        }
+
+    def get_available_tables(self):
+        return self.tables
+
+    def wrap_text_by_sentence(self, text, line_width):
+        if not text:
+            return ""
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        lines = []
+        current_line = ""
+        current_length = 0
+        for sentence in sentences:
+            words = sentence.split()
+            for i, word in enumerate(words):
+                word_length = len(word)
+                if current_length + word_length + (1 if current_line else 0) > line_width:
+                    if current_line:
+                        lines.append(current_line.rstrip())
+                        current_line = ""
+                        current_length = 0
+                current_line += (" " if current_line else "") + word
+                current_length += word_length + (1 if current_line else 0)
+            if current_line:
+                current_words = current_line.strip().split()
+                if len(current_words) == 1 and lines:
+                    last_line = lines[-1]
+                    next_char_index = text.find(current_line) + len(current_line)
+                    next_char = text[next_char_index:].strip()
+                    if not next_char or not next_char[0].isupper():
+                        if len(last_line) + len(current_line) + 1 <= line_width:
+                            lines[-1] = (last_line + " " + current_line).rstrip()
+                            current_line = ""
+                            current_length = 0
+                        else:
+                            lines.append(current_line.rstrip())
+                            current_line = ""
+                            current_length = 0
+                    else:
+                        lines.append(current_line.rstrip())
+                        current_line = ""
+                        current_length = 0
+                else:
+                    lines.append(current_line.rstrip())
+                    current_line = ""
+                    current_length = 0
+        if current_line:
+            lines.append(current_line.rstrip())
+        return "\n".join(lines)
+
+    def to_braille(self, text, table, line_width):
+        if not text or not table:
+            return ""
+        # Convert text to lowercase for consistent mapping
+        text = text.lower()
+        braille_text = ""
+        for char in text:
+            braille_char = self.braille_map.get(char, char)  # Use mapped Braille or keep original if not found
+            braille_text += braille_char
+        return self.wrap_text_by_sentence(braille_text, line_width)
+
+    def from_braille(self, braille, table):
+        if not braille or not table:
+            return ""
+        # Reverse mapping (basic, for demonstration)
+        reverse_map = {v: k for k, v in self.braille_map.items()}
+        text = ""
+        for char in braille:
+            text += reverse_map.get(char, char)
+        return text.lower()
+
+    def update_custom_table(self):
+        pass  # Implémentez selon vos besoins
 class BrailleConversionThread(QThread):
     conversion_done = pyqtSignal(object, str, str)
 
@@ -170,6 +260,7 @@ class BrailleUI(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.stack_layout = QVBoxLayout(self.central_widget)
 
+        # Interface d'authentification
         self.auth_container = QWidget()
         self.auth_layout = QVBoxLayout(self.auth_container)
         self.auth_layout.setAlignment(Qt.AlignCenter)
@@ -814,31 +905,41 @@ class BrailleUI(QMainWindow):
             self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
             tab = self.tab_widget.currentWidget()
             if tab:
+                # Bloquer les signaux pour éviter des mises à jour en boucle
+                tab.text_input.blockSignals(True)
+                tab.text_output.blockSignals(True)
+
+                # Récupérer le texte actuel
                 current_text = tab.text_input.toPlainText()
                 current_braille = tab.text_output.toPlainText()
-                
-                lines = current_text.split('\n')
-                formatted_lines = [self.braille_engine.wrap_text_by_sentence(line, self.line_width) for line in lines]
-                formatted_text = '\n'.join(formatted_lines)
 
-                braille_lines = current_braille.split('\n')
-                formatted_braille_lines = [self.braille_engine.wrap_text_by_sentence(line, self.line_width) for line in braille_lines]
-                formatted_braille = '\n'.join(formatted_braille_lines)
+                # Reformuler le texte et le Braille avec la nouvelle largeur
+                if current_text.strip():
+                    formatted_text = self.braille_engine.wrap_text_by_sentence(current_text, self.line_width)
+                    tab.text_input.setPlainText(formatted_text)
+                    tab.original_text = formatted_text
+                if current_braille.strip():
+                    formatted_braille = self.braille_engine.wrap_text_by_sentence(current_braille, self.line_width)
+                    tab.text_output.setPlainText(formatted_braille)
+                    tab.original_braille = formatted_braille
 
-                tab.text_input.setPlainText(formatted_text)
-                tab.text_output.setPlainText(formatted_braille)
-                tab.original_text = formatted_text
-                tab.original_braille = formatted_braille
-
+                # Appliquer la largeur de ligne aux zones de texte
                 tab.text_input.setLineWrapMode(QTextEdit.FixedColumnWidth)
                 tab.text_input.setLineWrapColumnOrWidth(self.line_width)
                 tab.text_output.setLineWrapMode(QTextEdit.FixedColumnWidth)
                 tab.text_output.setLineWrapColumnOrWidth(self.line_width)
 
-            self.update_conversion()
-            self.status_bar.showMessage(
-                f"Largeur des lignes ajustée à {self.line_width} caractères", 3000
-            )
+                # Restaurer les signaux
+                tab.text_input.blockSignals(False)
+                tab.text_output.blockSignals(False)
+
+                # Mettre à jour la conversion pour synchroniser
+                self.update_conversion()
+                self.status_bar.showMessage(
+                    f"Largeur des lignes ajustée à {self.line_width} caractères", 3000
+                )
+            else:
+                self.status_bar.showMessage("Aucun onglet actif pour ajuster la largeur", 3000)
         else:
             self.status_bar.showMessage("Ajustement de la largeur annulé", 3000)
 
@@ -1533,83 +1634,108 @@ class BrailleUI(QMainWindow):
     def show_custom_table(self):
         try:
             dialog = CustomBrailleTableWidget(self.braille_engine, self)
-            dialog.exec_()
-            self.braille_engine.update_custom_table()
-            self.update_conversion()
+            if dialog.exec_():
+                self.braille_engine.update_custom_table()
+                self.table_combo.clear()
+                self.table_combo.addItems(self.braille_engine.get_available_tables().keys())
+                self.table_combo.setCurrentText("Personnalisée" if "Personnalisée" in self.braille_engine.get_available_tables() else "Français (grade 1)")
+                self.update_conversion()
+                self.status_bar.showMessage("Tableau Braille personnalisé mis à jour", 3000)
         except Exception as e:
-            logging.error(f"Erreur lors de l'affichage de la table personnalisée : {str(e)}")
-            QMessageBox.critical(self, "Erreur", f"Erreur lors de l'affichage de la table : {str(e)}")
+            logging.error(f"Erreur dans show_custom_table : {str(e)}")
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la personnalisation : {str(e)}")
 
     def show_usage_stats(self):
         if not self.logged_in_user:
-            QMessageBox.warning(self, "Avertissement", "Veuillez vous connecter pour voir les statistiques.")
+            QMessageBox.warning(self, "Avertissement", "Vous devez être connecté pour voir les statistiques.")
             return
-
         try:
             stats = self.db.get_usage_stats(self.logged_in_user.id)
-            total_time = stats["total_usage_time"]
-            files_processed = stats["files_processed"]
-            print_jobs = stats["print_jobs"]
-
-            hours = total_time // 3600
-            minutes = (total_time % 3600) // 60
-            seconds = total_time % 60
-
+            total_time = stats.get('total_time', 0)
+            files_processed = stats.get('files_processed', 0)
+            prints = stats.get('prints', 0)
+            hours, remainder = divmod(total_time, 3600)
+            minutes, seconds = divmod(remainder, 60)
             message = (
                 f"Statistiques d'utilisation pour {self.current_email}:\n\n"
-                f"Temps total d'utilisation : {hours}h {minutes}m {seconds}s\n"
-                f"Fichiers traités : {files_processed}\n"
-                f"Impressions Braille : {print_jobs}"
+                f"Temps total d'utilisation: {hours}h {minutes}m {seconds}s\n"
+                f"Fichiers traités: {files_processed}\n"
+                f"Impressions Braille: {prints}"
             )
             QMessageBox.information(self, "Statistiques", message)
         except Exception as e:
-            logging.error(f"Erreur lors de la récupération des statistiques : {str(e)}")
+            logging.error(f"Erreur dans show_usage_stats : {str(e)}")
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la récupération des statistiques : {str(e)}")
 
     def clear_text(self):
         tab = self.tab_widget.currentWidget()
         if not tab:
             return
+        if tab.text_input.toPlainText().strip() or tab.text_output.toPlainText().strip():
+            reply = QMessageBox.question(
+                self, "Confirmer", "Voulez-vous effacer tout le contenu ?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                return
         tab.text_input.clear()
         tab.text_output.clear()
         tab.original_text = ""
         tab.original_braille = ""
         self.update_counters()
-
-    def update_usage_time(self):
-        if self.logged_in_user and hasattr(self, 'usage_start_time'):
-            elapsed = self.usage_start_time.secsTo(QTime.currentTime())
-            try:
-                self.db.update_usage_time(self.logged_in_user.id, elapsed)
-            except Exception as e:
-                logging.error(f"Erreur lors de la mise à jour du temps d'utilisation : {str(e)}")
+        self.status_bar.showMessage("Contenu effacé", 3000)
 
     def update_counters(self):
+        tab = self.tab_widget.currentWidget()
+        if not tab:
+            self.page_count.setText("0")
+            self.line_count.setText("0")
+            self.word_count.setText("0")
+            return
+
+        try:
+            text = tab.text_input.toPlainText()
+            lines = text.split('\n')
+            line_count = len([line for line in lines if line.strip()])
+            word_count = len([word for line in lines for word in line.split() if word.strip()])
+            page_count = max(1, (line_count + self.lines_per_page - 1) // self.lines_per_page)
+
+            self.page_count.setText(str(page_count))
+            self.line_count.setText(str(line_count))
+            self.word_count.setText(str(word_count))
+        except Exception as e:
+            logging.error(f"Erreur dans update_counters : {str(e)}")
+            self.status_bar.showMessage("Erreur lors de la mise à jour des compteurs.")
+
+    def update_conversion(self):
+        tab = self.tab_widget.currentWidget()
+        if not tab or getattr(tab, 'is_updating', False):
+            logging.debug("update_conversion skipped: tab is None or is_updating")
+            return
+
+        logging.debug("Starting update_conversion")
+        self.conversion_timer.start(500)
+
+    def _trigger_conversion(self):
         tab = self.tab_widget.currentWidget()
         if not tab:
             return
 
         try:
-            text = tab.text_input.toPlainText()
-            lines = text.split("\n")
-            line_count = len([line for line in lines if line.strip()])
-            
-            page_count = max(1, (line_count + self.lines_per_page - 1) // self.lines_per_page)
-            
-            words = re.findall(r'\b\w+\b', text)
-            word_count = len(words)
-
-            self.line_count.setText(str(line_count))
-            self.page_count.setText(str(page_count))
-            self.word_count.setText(str(word_count))
-
-            cursor = tab.text_input.textCursor()
-            line_number = tab.text_input.document().findBlock(cursor.position()).blockNumber() + 1
-            tab_title = self.tab_widget.tabText(self.tab_widget.indexOf(tab))
-            self.status_bar.showMessage(f"Ligne actuelle : {line_number} dans '{tab_title}'")
+            self.sync_text_areas(tab)
+            self.update_counters()
+            self.status_bar.showMessage("Conversion mise à jour")
         except Exception as e:
-            logging.error(f"Erreur lors de la mise à jour des compteurs : {str(e)}")
-            self.status_bar.showMessage("Erreur lors de la mise à jour des compteurs.")
+            logging.error(f"Erreur dans _trigger_conversion : {str(e)}")
+            self.status_bar.showMessage("Erreur lors de la conversion.")
+
+    def update_usage_time(self):
+        if self.logged_in_user and self.current_email:
+            try:
+                elapsed = self.usage_start_time.secsTo(QTime.currentTime())
+                self.db.update_usage_time(self.logged_in_user.id, elapsed)
+            except Exception as e:
+                logging.error(f"Erreur dans update_usage_time : {str(e)}")
 
     def update_line_width(self):
         tab = self.tab_widget.currentWidget()
@@ -1617,63 +1743,55 @@ class BrailleUI(QMainWindow):
             return
 
         try:
-            tab.text_input.setLineWrapMode(QTextEdit.FixedColumnWidth)
-            tab.text_input.setLineWrapColumnOrWidth(self.line_width)
-            tab.text_output.setLineWrapMode(QTextEdit.FixedColumnWidth)
-            tab.text_output.setLineWrapColumnOrWidth(self.line_width)
+            font_metrics = QFontMetrics(tab.text_input.font())
+            char_width = font_metrics.averageCharWidth()
+            window_width = tab.text_input.width()
+            new_line_width = max(self.min_line_width, window_width // char_width)
+            if new_line_width != self.line_width:
+                self.line_width = new_line_width
+                self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
+                self.update_conversion()
         except Exception as e:
-            logging.error(f"Erreur lors de la mise à jour de la largeur de ligne : {str(e)}")
+            logging.error(f"Erreur dans update_line_width : {str(e)}")
             self.status_bar.showMessage("Erreur lors de la mise à jour de la largeur de ligne.")
-
-    def _get_cursor_position_info(self, text, cursor_pos):
-        lines = text[:cursor_pos].split('\n')
-        line = len(lines)
-        col = len(lines[-1]) if lines else 0
-        return (line, col)
-
-    def _restore_cursor_position(self, text_edit, cursor_pos):
-        logging.debug(f"Restoring cursor position to: {cursor_pos}")
-        cursor = text_edit.textCursor()
-        text = text_edit.toPlainText()
-        valid_pos = min(cursor_pos, len(text))
-        cursor.setPosition(valid_pos)
-        text_edit.setTextCursor(cursor)
-        text_edit.ensureCursorVisible()
-        logging.debug(f"Cursor restored to: {valid_pos}")
-
-    def update_conversion(self):
-        tab = self.tab_widget.currentWidget()
-        if not tab or getattr(tab, 'is_updating', False) or self.is_typing:
-            logging.debug("update_conversion skipped: tab is None, is_updating, or typing")
-            return
-        logging.debug("Scheduling conversion update")
-        self.conversion_timer.start(200)
-
-    def _trigger_conversion(self):
-        tab = self.tab_widget.currentWidget()
-        if tab:
-            logging.debug("Triggering conversion")
-            self.sync_text_areas(tab)
-            self.update_counters()
 
     def handle_resize(self):
         self.update_line_width()
         self.update_conversion()
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.resize_timer.start(100)
+    def _restore_cursor_position(self, text_edit, position):
+        cursor = text_edit.textCursor()
+        cursor.setPosition(min(position, len(text_edit.toPlainText())))
+        text_edit.setTextCursor(cursor)
+        text_edit.ensureCursorVisible()
 
     def closeEvent(self, event):
-        if self.logged_in_user and hasattr(self, 'usage_start_time'):
+        if self.logged_in_user:
             elapsed = self.usage_start_time.secsTo(QTime.currentTime())
             self.db.update_usage_time(self.logged_in_user.id, elapsed)
+        for index in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(index)
+            if tab and (tab.text_input.toPlainText().strip() or tab.text_output.toPlainText().strip()):
+                reply = QMessageBox.question(
+                    self, "Confirmer", "Voulez-vous sauvegarder les modifications avant de quitter ?",
+                    QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Yes
+                )
+                if reply == QMessageBox.Yes:
+                    self.save_document()
+                elif reply == QMessageBox.Cancel:
+                    event.ignore()
+                    return
         event.accept()
 
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    stderr_redirect = StderrToLog()
-    sys.stderr = stderr_redirect
-    window = BrailleUI(app)
-    window.show()
-    sys.exit(app.exec_())
+if __name__ == '__main__':
+    try:
+        app = QApplication(sys.argv)
+        app.setApplicationName("Convertisseur Texte ↔ Braille")
+        app.setOrganizationName("xAI")
+        window = BrailleUI(app)
+        window.show()
+        sys.stderr = StderrToLog()
+        sys.exit(app.exec_())
+    except Exception as e:
+        logging.critical(f"Erreur fatale au démarrage : {str(e)}")
+        sys.exit(1)

@@ -64,7 +64,7 @@ class BrailleEngine:
                         if len(char) >= 1 and all('\u2800' <= c <= '\u28FF' for c in braille):
                             self.custom_table[char] = braille
                     except ValueError as e:
-                        print(f"Format incorrect dans {custom_file} : {line.strip()} - {str(e)}")
+                        logging.error(f"Format incorrect dans {custom_file} : {line.strip()} - {str(e)}")
 
     def update_custom_table(self):
         self.load_custom_table()
@@ -107,7 +107,6 @@ class BrailleEngine:
                 logging.debug("Returning cached result")
                 return self._wrap_cache[cache_key]
 
-        # Divise le texte en lignes si preserve_newlines est True
         lines = text.split("\n") if preserve_newlines else [text]
         wrapped_lines = []
 
@@ -116,15 +115,13 @@ class BrailleEngine:
                 wrapped_lines.append("")
                 continue
 
-            # Divise en segments (phrases ou espaces multiples)
             segments = re.split(r'(\s+|[^\s.]+(?:\.[^\s.]|$))', line)
-            segments = [s for s in segments if s]  # Supprime les segments vides
+            segments = [s for s in segments if s]
             current_line = ""
             line_segments = []
 
             for segment in segments:
                 if segment.isspace():
-                    # Gérer les espaces multiples
                     if len(current_line) + len(segment) <= width:
                         current_line += segment
                     else:
@@ -133,7 +130,6 @@ class BrailleEngine:
                         current_line = segment.lstrip()
                     continue
 
-                # Gérer les phrases ou mots
                 if len(current_line) + len(segment) <= width:
                     current_line += segment
                 else:
@@ -141,7 +137,6 @@ class BrailleEngine:
                         line_segments.append(current_line.rstrip())
                         current_line = segment
                     else:
-                        # Si le segment est trop long, le couper
                         while len(segment) > width:
                             line_segments.append(segment[:width])
                             segment = segment[width:]
@@ -154,60 +149,6 @@ class BrailleEngine:
 
         result = "\n".join(wrapped_lines).rstrip()
         logging.debug(f"Formatted text: {result[:100]}...")
-        with self.lock:
-            self._wrap_cache[cache_key] = result
-            self._wrap_cache_width = width
-            if len(self._wrap_cache) > self._wrap_cache_max_size:
-                self._wrap_cache.popitem(last=False)
-        return result
-
-    def wrap_text_plain(self, text, width=33, preserve_newlines=True):
-        if not text:
-            return ""
-        cache_key = (text, width, "plain", preserve_newlines)
-        with self.lock:
-            if cache_key in self._wrap_cache and self._wrap_cache_width == width:
-                return self._wrap_cache[cache_key]
-
-        lines = text.split("\n") if preserve_newlines else [text.replace("\n", " ")]
-        wrapped_lines = []
-
-        for line in lines:
-            if not line.strip():
-                wrapped_lines.append("")
-                continue
-            words = re.split(r'(\s+)', line)  # Preserve spaces
-            current_line = []
-            current_length = 0
-
-            for segment in words:
-                segment_length = len(segment)
-                if segment.isspace():
-                    if current_length + segment_length <= width:
-                        current_line.append(segment)
-                        current_length += segment_length
-                    continue
-                if current_length + segment_length <= width:
-                    current_line.append(segment)
-                    current_length += segment_length
-                else:
-                    if current_line:
-                        wrapped_lines.append("".join(current_line).rstrip())
-                    if segment_length > width:
-                        while segment:
-                            if len(segment) <= width:
-                                current_line = [segment]
-                                current_length = len(segment)
-                                break
-                            wrapped_lines.append(segment[:width])
-                            segment = segment[width:]
-                    else:
-                        current_line = [segment]
-                        current_length = segment_length
-            if current_line:
-                wrapped_lines.append("".join(current_line).rstrip())
-
-        result = "\n".join(wrapped_lines)
         with self.lock:
             self._wrap_cache[cache_key] = result
             self._wrap_cache_width = width
@@ -230,7 +171,7 @@ class BrailleEngine:
             if not line.strip():
                 wrapped_lines.append("")
                 continue
-            words = re.split(r'(\s+)', line)  # Preserve spaces
+            words = re.split(r'(\s+)', line)
             current_line = []
             current_length = 0
 
@@ -322,7 +263,7 @@ class BrailleEngine:
         except subprocess.CalledProcessError as e:
             raise Exception(f"Erreur LibLouis: {e.stderr}")
 
-    def to_braille(self, text, table_path, line_width=33, capitalize=False, section_separator="\u28CD"):
+    def to_braille(self, text, table_path, line_width=33, capitalize=False, section_separator="\u28CD", is_typing=False):
         if not self.lou_path or not text:
             return ""
 
@@ -377,11 +318,15 @@ class BrailleEngine:
                         non_empty_idx += 1
 
             braille_output = "\n".join(braille_result).rstrip()
-            synced_text, synced_braille = self.sync_lines(text, braille_output, line_width, preserve_newlines=True)
-            if section_separator:
-                synced_braille = synced_braille.replace("\n\n", f"\n{section_separator}\n")
-            return synced_braille.rstrip()
+            # Ne pas synchroniser pendant la frappe
+            if not is_typing:
+                synced_text, synced_braille = self.sync_lines(text, braille_output, line_width, preserve_newlines=True)
+                if section_separator:
+                    synced_braille = synced_braille.replace("\n\n", f"\n{section_separator}\n")
+                return synced_braille.rstrip()
+            return braille_output.rstrip()
         except Exception as e:
+            logging.error(f"Erreur de conversion en braille : {str(e)}")
             QMessageBox.warning(None, "Erreur", f"Erreur de conversion en braille : {e}")
             return ""
 
@@ -402,7 +347,7 @@ class BrailleEngine:
         except subprocess.CalledProcessError as e:
             raise Exception(f"Erreur LibLouis: {e.stderr}")
 
-    def from_braille(self, braille_text, table_path, line_width=33):
+    def from_braille(self, braille_text, table_path, line_width=33, is_typing=False):
         if not self.lou_path or not braille_text:
             return ""
 
@@ -453,14 +398,21 @@ class BrailleEngine:
                         non_empty_idx += 1
 
             text_output = "\n".join(text_result).rstrip()
-            synced_text, synced_braille = self.sync_lines(text_output, braille_text, line_width, preserve_newlines=True)
-            return synced_text.rstrip()
+            # Ne pas synchroniser pendant la frappe
+            if not is_typing:
+                synced_text, synced_braille = self.sync_lines(text_output, braille_text, line_width, preserve_newlines=True)
+                return synced_text.rstrip()
+            return text_output.rstrip()
         except Exception as e:
+            logging.error(f"Erreur de conversion en texte : {str(e)}")
             QMessageBox.warning(None, "Erreur", f"Erreur de conversion en texte : {e}")
             return ""
 
     def ensure_readability(self, braille_text):
         return braille_text.rstrip()
 
-    def __del__(self):
+    def shutdown(self):
         self.executor.shutdown(wait=True)
+
+    def __del__(self):
+        self.shutdown()

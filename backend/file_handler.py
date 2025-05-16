@@ -15,19 +15,18 @@ import logging
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER, TA_JUSTIFY
 from xml.sax.saxutils import escape
 
-
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Configuration des polices
 BRAILLE_FONT_NAME = "Noto Sans Braille"
-FALLBACK_FONT = "Arial"
-FONT_PATH = os.getenv("FONT_PATH", r"C:\Users\LENOVO\Downloads\Noto_Sans_Symbols_2\NotoSansSymbols2-Regular.ttf")
+TEXT_FONT_NAME = "Helvetica"  # Font with bold/italic support
+FALLBACK_FONT = "Helvetica"
+FONT_PATH = os.getenv("FONT_PATH", r"C:\Users\LENOVO\Downloads\Noto_Sans_Symbols_2\NotoSansBraille-Regular.ttf")
 
 class FileHandler:
     def __init__(self):
@@ -225,28 +224,35 @@ class FileHandler:
     def export_pdf(self, file_path, text_document, braille_text, save_type, font_name=BRAILLE_FONT_NAME, author=None, doc_name="Document"):
         try:
             # Step 1: Font handling
-            font_to_use = font_name
+            text_font = TEXT_FONT_NAME  # Use Helvetica for text (supports bold/italic)
+            braille_font = font_name
             font_paths = {
-                "Helvetica": "C:/Windows/Fonts/helveticaneue.ttf",  # Adjust for your system
-                "Noto Sans Braille": FONT_PATH
+                "Helvetica": "C:/Windows/Fonts/helveticaneue.ttf",  # Exemple pour Windows
+                "Noto Sans Braille": "C:/Users/LENOVO/Downloads/Noto_Sans_Symbols_2/NotoSansBraille-Regular.ttf"  # Ajuster ce chemin
             }
 
-            if font_name not in pdfmetrics.getRegisteredFontNames():
-                font_path = font_paths.get(font_name)
+            # Register text font (Helvetica, which supports bold/italic)
+            if text_font not in pdfmetrics.getRegisteredFontNames():
+                logging.debug(f"Text font {text_font} not registered, using fallback {FALLBACK_FONT}")
+                text_font = FALLBACK_FONT
+
+            # Register Braille font
+            if braille_font not in pdfmetrics.getRegisteredFontNames():
+                font_path = font_paths.get(braille_font)
                 if font_path and os.path.exists(font_path):
                     try:
-                        pdfmetrics.registerFont(TTFont(font_name, font_path))
-                        print(f"Police '{font_name}' enregistrée avec succès depuis {font_path}")
+                        pdfmetrics.registerFont(TTFont(braille_font, font_path))
+                        logging.debug(f"Police '{braille_font}' enregistrée avec succès depuis {font_path}")
                     except Exception as e:
-                        print(f"Erreur lors de l'enregistrement de la police '{font_name}': {str(e)}")
-                        font_to_use = FALLBACK_FONT
+                        logging.error(f"Erreur lors de l'enregistrement de la police '{braille_font}': {str(e)}")
+                        braille_font = FALLBACK_FONT
                 else:
-                    print(f"Police '{font_name}' non trouvée à {font_path}, utilisation de '{FALLBACK_FONT}'")
-                    font_to_use = FALLBACK_FONT
+                    logging.warning(f"Police '{braille_font}' non trouvée à {font_path}, utilisation de '{FALLBACK_FONT}'")
+                    braille_font = FALLBACK_FONT
 
-            if font_to_use not in pdfmetrics.getRegisteredFontNames():
-                print(f"Police '{font_to_use}' non disponible, utilisation de '{FALLBACK_FONT}'")
-                font_to_use = FALLBACK_FONT
+            if braille_font not in pdfmetrics.getRegisteredFontNames():
+                logging.warning(f"Police '{braille_font}' non disponible, utilisation de '{FALLBACK_FONT}'")
+                braille_font = FALLBACK_FONT
 
             # Step 2: Configure PDF document
             doc = SimpleDocTemplate(
@@ -266,21 +272,21 @@ class FileHandler:
             styles = getSampleStyleSheet()
             title_style = ParagraphStyle(
                 name="Title",
-                fontName=font_to_use,
+                fontName=text_font,
                 fontSize=14,
                 spaceAfter=12,
                 alignment=TA_CENTER
             )
             text_style = ParagraphStyle(
                 name="Text",
-                fontName=font_to_use,
+                fontName=text_font,
                 fontSize=12,
                 spaceAfter=6,
                 leading=12 * 1.2
             )
             braille_style = ParagraphStyle(
                 name="Braille",
-                fontName=font_to_use,
+                fontName=braille_font,
                 fontSize=12,
                 spaceAfter=6,
                 leading=12 * 1.2
@@ -376,6 +382,7 @@ class FileHandler:
                             paragraph_text.append(f"</{style}>")
 
                         full_text = "".join(paragraph_text)
+                        logging.debug(f"Paragraph text: {full_text[:100]}...")
                         wrapped_text = self._wrap_text(full_text, line_width)
                         paragraph_html = f"<para>{wrapped_text}</para>" if wrapped_text else "<para> </para>"
                         story.append(Paragraph(paragraph_html, p_style))
@@ -432,106 +439,87 @@ class FileHandler:
             print(f"Document PDF exporté avec succès : {file_path}")
 
         except Exception as e:
+            logging.error(f"Erreur lors de l'exportation en PDF : {str(e)}")
             raise Exception(f"Erreur lors de l'exportation en PDF : {str(e)}")
+
     def export_docx(self, file_path, text_document, braille_text, save_type, font_name=BRAILLE_FONT_NAME, doc_name="Document"):
         try:
+            from docx.shared import Pt, Inches
+            from PyQt5.QtGui import QFont
             doc = Document()
             from docx.oxml.ns import qn
-            from docx.shared import Pt, Inches
-
             # Ajouter le titre du document
             doc.add_heading(doc_name, level=0)
-
             sections = doc.sections
             for section in sections:
                 section.left_margin = Inches(10 / 25.4)
                 section.right_margin = Inches(10 / 25.4)
                 section.top_margin = Inches(10 / 25.4)
                 section.bottom_margin = Inches(10 / 25.4)
-
             lines_per_page = self.parent.lines_per_page if self.parent else 25
             line_width = self.parent.line_width if self.parent else 80
             indent_mm = self.parent.indent if self.parent else 0
             line_spacing = self.parent.line_spacing if self.parent else 1.0
-
             if save_type in ["Texte + Braille", "Texte uniquement"]:
-                text_content = text_document.toPlainText()
-                text_lines = text_content.split('\n')
-                current_page_lines = []
-                line_count = 0
-
-                for line in text_lines:
-                    if line_count >= lines_per_page:
-                        doc.add_paragraph("--- Page Break ---")
-                        for saved_line in current_page_lines:
-                            wrapped_line = self._wrap_text(saved_line, line_width)
-                            p = doc.add_paragraph()
-                            p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
-                            p.paragraph_format.line_spacing = line_spacing
-                            run = p.add_run(wrapped_line)
-                            run.font.name = FALLBACK_FONT
-                            run._element.rPr.rFonts.set(qn('w:eastAsia'), FALLBACK_FONT)
-                            run.font.size = Pt(12)
-                        current_page_lines = []
-                        line_count = 0
-                    if line.strip():
-                        current_page_lines.append(line)
-                        line_count += 1
-
-                if current_page_lines:
-                    doc.add_paragraph("--- Page Break ---")
-                    for saved_line in current_page_lines:
-                        wrapped_line = self._wrap_text(saved_line, line_width)
+                block = text_document.begin()
+                block_count = 0
+                while block.isValid():
+                    if block.text().strip():
                         p = doc.add_paragraph()
+                        # Alignement
+                        align = block.blockFormat().alignment()
+                        if int(align) & 2:
+                            p.alignment = 2  # RIGHT
+                        elif int(align) & 4:
+                            p.alignment = 1  # CENTER
+                        elif int(align) & 8:
+                            p.alignment = 3  # JUSTIFY
+                        else:
+                            p.alignment = 0  # LEFT
                         p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
                         p.paragraph_format.line_spacing = line_spacing
-                        run = p.add_run(wrapped_line)
-                        run.font.name = FALLBACK_FONT
-                        run._element.rPr.rFonts.set(qn('w:eastAsia'), FALLBACK_FONT)
-                        run.font.size = Pt(12)
-
+                        it = block.begin()
+                        while not it.atEnd():
+                            fragment = it.fragment()
+                            if fragment.isValid():
+                                char_format = fragment.charFormat()
+                                run = p.add_run(fragment.text())
+                                run.font.name = font_name
+                                run.font.size = Pt(12)
+                                run.bold = char_format.fontWeight() == QFont.Bold
+                                run.italic = char_format.fontItalic()
+                                run.underline = char_format.fontUnderline()
+                            it += 1
+                    block = block.next()
+                    block_count += 1
+                    if block_count % lines_per_page == 0:
+                        doc.add_paragraph("--- Page Break ---")
             if save_type in ["Texte + Braille", "Braille uniquement"]:
                 if save_type == "Texte + Braille":
                     doc.add_paragraph("=== Section Braille ===")
-
                 braille_lines = braille_text.split('\n')
                 current_page_lines = []
                 line_count = 0
-
                 for line in braille_lines:
                     if line_count >= lines_per_page:
                         doc.add_paragraph("--- Page Break ---")
                         for saved_line in current_page_lines:
-                            wrapped_line = self._wrap_text(saved_line, line_width)
-                            p = doc.add_paragraph()
+                            p = doc.add_paragraph(saved_line)
                             p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
                             p.paragraph_format.line_spacing = line_spacing
-                            run = p.add_run(wrapped_line)
-                            run.font.name = font_name
-                            run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
-                            run.font.size = Pt(12)
                         current_page_lines = []
                         line_count = 0
                     if line.strip():
                         current_page_lines.append(line)
                         line_count += 1
-
                 if current_page_lines:
                     doc.add_paragraph("--- Page Break ---")
                     for saved_line in current_page_lines:
-                        wrapped_line = self._wrap_text(saved_line, line_width)
-                        p = doc.add_paragraph()
+                        p = doc.add_paragraph(saved_line)
                         p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
                         p.paragraph_format.line_spacing = line_spacing
-                        run = p.add_run(wrapped_line)
-                        run.font.name = font_name
-                        run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
-                        run.font.size = Pt(12)
-
-            logging.debug(f"Exporting DOCX to {file_path}")
             doc.save(file_path)
             print(f"Document DOCX exporté avec succès : {file_path}")
-
         except Exception as e:
             raise Exception(f"Erreur lors de l'exportation en DOCX : {str(e)}")
 

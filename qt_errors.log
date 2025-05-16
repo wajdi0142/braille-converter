@@ -76,3 +76,15 @@
 2025-05-12 12:51:14,019 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
 2025-05-12 12:51:14,019 - DEBUG - Finished sync_text_areas
 2025-05-12 12:51:14,390 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-13 21:03:51,052 - DEBUG - BrailleUI instancié
+2025-05-13 21:03:51,264 - DEBUG - Starting sync_text_areas
+2025-05-13 21:03:51,264 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-13 21:03:51,264 - DEBUG - Text changed, updating Braille
+2025-05-13 21:03:51,264 - DEBUG - Finished sync_text_areas
+2025-05-13 21:03:51,524 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'
+2025-05-13 21:23:41,767 - DEBUG - BrailleUI instancié
+2025-05-13 21:23:42,059 - DEBUG - Starting sync_text_areas
+2025-05-13 21:23:42,059 - DEBUG - sync_text_areas - Input cursor: 0, Output cursor: 0
+2025-05-13 21:23:42,059 - DEBUG - Text changed, updating Braille
+2025-05-13 21:23:42,059 - DEBUG - Finished sync_text_areas
+2025-05-13 21:23:42,343 - ERROR - Erreur lors de l'exécution de l'application : 'BrailleUI' object has no attribute 'was_maximized'

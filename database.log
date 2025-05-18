@@ -1235,3 +1235,57 @@ ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_max
 ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
 ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
 ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de la sauvegarde : Erreur lors de l'exportation en PDF : 
+paragraph text "<para><para style='UnderlinedText'>Texte \u2194 Braille!</para></para>" caused exception paraparser: syntax error: invalid attribute name style attrMap=['align', 'alignment', 'allowOrphans', 'allowWidows', 'alloworphans', 'allowwidows', 'autoLeading', 'autoleading', 'backColor', 'backcolor', 'banchor', 'bcolor', 'bfont', 'bfontsize', 'bg', 'bgcolor', 'bindent', 'boffsety', 'borderColor', 'borderPadding', 'borderRadius', 'borderWidth', 'bordercolor', 'borderpadding', 'borderradius', 'borderwidth', 'bulletAnchor', 'bulletColor', 'bulletFontName', 'bulletFontSize', 'bulletIndent', 'bulletOffsetY', 'bulletanchor', 'bulletcolor', 'bulletfontname', 'bulletfontsize', 'bulletindent', 'bulletoffsety', 'color', 'embeddedHyphenation', 'embeddedhyphenation', 'endDots', 'enddots', 'face', 'fg', 'findent', 'firstLineIndent', 'firstlineindent', 'font', 'fontName', 'fontSize', 'fontname', 'fontsize', 'hyphenationLang', 'hyphenationLanguage', 'hyphenationMinWordLength', 'hyphenationOverflow', 'hyphenationlang', 'hyphenationminwordlength', 'hyphenationoverflow', 'justifyBreaks', 'justifyLastLine', 'justifybreaks', 'justifylastline', 'leading', 'leftIndent', 'leftindent', 'lindent', 'rightIndent', 'rightindent', 'rindent', 'size', 'spaceAfter', 'spaceBefore', 'spaceShrinkage', 'spacea', 'spaceafter', 'spaceb', 'spacebefore', 'spaceshrinkage', 'splitLongWords', 'splitlongwords', 'strikeColor', 'strikeGap', 'strikeOffset', 'strikeWidth', 'strikecolor', 'strikegap', 'strikeoffset', 'strikewidth', 'textColor', 'textTransform', 'textcolor', 'texttransform', 'underlineColor', 'underlineGap', 'underlineOffset', 'underlineWidth', 'underlinecolor', 'underlinegap', 'underlineoffset', 'underlinewidth', 'uriWasteReduce', 'uriwastereduce', 'wordWrap', 'wordwrap']
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de l'exportation PDF: 'QFontDatabase' object has no attribute 'hasFamily'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de la sauvegarde : Erreur lors de l'exportation en PDF : 
+paragraph text "<para><b>Bienvenue</b> <i>dans le convertisseur</i> <para style='UnderlinedText'>Texte \u2194 Braille</para></para>" caused exception paraparser: syntax error: invalid attribute name style attrMap=['align', 'alignment', 'allowOrphans', 'allowWidows', 'alloworphans', 'allowwidows', 'autoLeading', 'autoleading', 'backColor', 'backcolor', 'banchor', 'bcolor', 'bfont', 'bfontsize', 'bg', 'bgcolor', 'bindent', 'boffsety', 'borderColor', 'borderPadding', 'borderRadius', 'borderWidth', 'bordercolor', 'borderpadding', 'borderradius', 'borderwidth', 'bulletAnchor', 'bulletColor', 'bulletFontName', 'bulletFontSize', 'bulletIndent', 'bulletOffsetY', 'bulletanchor', 'bulletcolor', 'bulletfontname', 'bulletfontsize', 'bulletindent', 'bulletoffsety', 'color', 'embeddedHyphenation', 'embeddedhyphenation', 'endDots', 'enddots', 'face', 'fg', 'findent', 'firstLineIndent', 'firstlineindent', 'font', 'fontName', 'fontSize', 'fontname', 'fontsize', 'hyphenationLang', 'hyphenationLanguage', 'hyphenationMinWordLength', 'hyphenationOverflow', 'hyphenationlang', 'hyphenationminwordlength', 'hyphenationoverflow', 'justifyBreaks', 'justifyLastLine', 'justifybreaks', 'justifylastline', 'leading', 'leftIndent', 'leftindent', 'lindent', 'rightIndent', 'rightindent', 'rindent', 'size', 'spaceAfter', 'spaceBefore', 'spaceShrinkage', 'spacea', 'spaceafter', 'spaceb', 'spacebefore', 'spaceshrinkage', 'splitLongWords', 'splitlongwords', 'strikeColor', 'strikeGap', 'strikeOffset', 'strikeWidth', 'strikecolor', 'strikegap', 'strikeoffset', 'strikewidth', 'textColor', 'textTransform', 'textcolor', 'texttransform', 'underlineColor', 'underlineGap', 'underlineOffset', 'underlineWidth', 'underlinecolor', 'underlinegap', 'underlineoffset', 'underlinewidth', 'uriWasteReduce', 'uriwastereduce', 'wordWrap', 'wordwrap']
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Font file not found at C:\Users\LENOVO\Downloads\Noto_Sans_Symbols_2\NotoSansBraille-Regular.ttf. Please verify the path or install 'Noto Sans Braille'.
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de la sauvegarde : 
+paragraph text '<para>1345.pdf</para>' caused exception error with style name=Title Can't map determine family/bold/italic for noto sans braille
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Error exporting PDF: 
+paragraph text '<para>1345.pdf</para>' caused exception error with style name=Title Can't map determine family/bold/italic for arial unicode ms
+ERROR:root:Erreur lors de la sauvegarde : Error exporting PDF: 
+paragraph text '<para>1345.pdf</para>' caused exception error with style name=Title Can't map determine family/bold/italic for arial unicode ms
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de la sauvegarde : 
+paragraph text '<para><font name="Noto Sans Braille-Bold">Bienvenue</font> <font name="Noto Sans Braille-Italic">dans le convertisseur</font> Texte \u2194 Braille</para>' caused exception error with style name=TextBlock0 Can't map determine family/bold/italic for noto sans braille
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de la sauvegarde : Erreur lors de l'exportation en PDF : 'QTextDocument' object has no attribute 'document'
+ERROR:root:Erreur lors de la sauvegarde : Erreur lors de l'exportation en DOCX : 'QTextDocument' object has no attribute 'document'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de la sauvegarde : Erreur lors de l'exportation en PDF : 
+paragraph text '<para>!</para>' caused exception error with style name=NormalText Can't map determine family/bold/italic for arial
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de l'exportation en PDF : "Style 'Title' already defined in stylesheet"
+ERROR:root:Erreur lors de la sauvegarde : "Style 'Title' already defined in stylesheet"
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de l'exportation en DOCX : 'Font' object has no attribute 'size\u0924\u093f'
+ERROR:root:Erreur lors de la sauvegarde : 'Font' object has no attribute 'size\u0924\u093f'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de l'exportation en DOCX : 'Font' object has no attribute 'size\u0924\u093f'
+ERROR:root:Erreur lors de la sauvegarde : 'Font' object has no attribute 'size\u0924\u093f'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Erreur lors de l'exportation en PDF : [WinError 2] Le fichier spécifié est introuvable
+ERROR:root:Erreur lors de la sauvegarde : Erreur lors de l'exportation en PDF : [WinError 2] Le fichier spécifié est introuvable
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'
+ERROR:root:Device auth check error: 'BrailleUI' object has no attribute 'was_maximized'

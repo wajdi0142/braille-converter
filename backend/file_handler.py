@@ -1,9 +1,13 @@
 import os
 import pdfplumber
 from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_UNDERLINE
+from docx.enum.style import WD_STYLE_TYPE
 from reportlab.lib.units import mm
 from PyQt5.QtGui import QPainter, QFont
 from PyQt5.QtPrintSupport import QPrinter
+from PyQt5.QtCore import Qt
 from PIL import Image, ImageEnhance
 import pytesseract
 import numpy as np
@@ -102,7 +106,10 @@ class FileHandler:
         }
         braille_text = ''
         for char in text.lower():
-            braille_text += braille_table.get(char, ' ')
+            braille_char = braille_table.get(char, ' ')
+            if braille_char == ' ' and not char.isspace():
+                logging.warning(f"Caractère français non traduisible en Braille: '{char}' (U+{ord(char):04x})")
+            braille_text += braille_char
         return braille_text
 
     def _text_to_braille_arabic(self, text):
@@ -118,7 +125,10 @@ class FileHandler:
         braille_text = ''
         text = text[::-1]
         for char in text:
-            braille_text += braille_table.get(char, ' ')
+            braille_char = braille_table.get(char, ' ')
+            if braille_char == ' ' and not char.isspace():
+                logging.warning(f"Caractère arabe non traduisible en Braille: '{char}' (U+{ord(char):04x})")
+            braille_text += braille_char
         return braille_text
 
     def convert_to_braille(self, text):
@@ -234,22 +244,6 @@ class FileHandler:
             raise Exception(f"Erreur lors de la sauvegarde : {str(e)}")
 
     def export_pdf(self, file_path, text_document, braille_text, save_type, font_name=BRAILLE_FONT_NAME, author=None, doc_name="Document"):
-        """
-        Export a text and/or Braille document to PDF.
-        
-        Args:
-            file_path (str): Path to save the PDF.
-            text_document: QTextDocument containing the text content.
-            braille_text (str): Braille content as a string.
-            save_type (str): Export type ("Texte + Braille", "Texte uniquement", "Braille uniquement").
-            font_name (str): Braille font name (default: Noto Sans Braille).
-            author (str): Document author (optional).
-            doc_name (str): Document title (default: "Document").
-        
-        Raises:
-            ValueError: If inputs are invalid.
-            Exception: If PDF generation fails.
-        """
         try:
             # Input validation
             if not file_path or not isinstance(file_path, str):
@@ -261,7 +255,13 @@ class FileHandler:
             if save_type not in ["Texte + Braille", "Texte uniquement", "Braille uniquement"]:
                 raise ValueError("Invalid save type")
 
-            # Step 1: Font handling
+            # Récupérer les paramètres de pagination
+            lines_per_page = getattr(self.parent, 'lines_per_page', DEFAULT_LINES_PER_PAGE) if hasattr(self, 'parent') and self.parent else DEFAULT_LINES_PER_PAGE
+            line_width = getattr(self.parent, 'line_width', DEFAULT_LINE_WIDTH) if hasattr(self, 'parent') and self.parent else DEFAULT_LINE_WIDTH
+            indent_mm = getattr(self.parent, 'indent', DEFAULT_INDENT) if hasattr(self, 'parent') and self.parent else DEFAULT_INDENT
+            line_spacing = getattr(self.parent, 'line_spacing', DEFAULT_LINE_SPACING) if hasattr(self, 'parent') and self.parent else DEFAULT_LINE_SPACING
+
+            # Configuration des polices
             text_font = TEXT_FONT_NAME
             braille_font = font_name
 
@@ -270,67 +270,87 @@ class FileHandler:
                 "Times New Roman": "Times New Roman",
                 "Times New Roman-Bold": "Times New Roman-Bold",
                 "Times New Roman-Italic": "Times New Roman-Italic",
+                # Add Italic+Bold variant if available and needed for full compatibility
+                # "Times New Roman-BoldItalic": "Times New Roman-BoldItalic",
             }
-            for font_name, font_key in font_variants.items():
-                if font_key not in pdfmetrics.getRegisteredFontNames():
-                    font_path = FONT_PATHS.get(font_key)
+            
+            # Common font paths for Windows (adapt for other OS)
+            win_font_dir = os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Fonts")
+
+            FONT_FILE_MAP = {
+                "Times New Roman": "times.ttf",
+                "Times New Roman-Bold": "timesbd.ttf",
+                "Times New Roman-Italic": "timesi.ttf",
+                "Times New Roman-BoldItalic": "timesbi.ttf",
+                BRAILLE_FONT_NAME: "NotoSansSymbols2-Regular.ttf", # Assuming Noto Sans Braille uses this file
+            }
+
+            for font_key, font_name_reportlab in font_variants.items():
+                if font_name_reportlab not in pdfmetrics.getRegisteredFontNames():
+                    font_file = FONT_FILE_MAP.get(font_key)
+                    font_path = None
+                    if font_file:
+                        font_path = os.path.join(win_font_dir, font_file)
+                    
                     if font_path and os.path.exists(font_path):
                         try:
-                            pdfmetrics.registerFont(TTFont(font_key, font_path))
-                            logging.debug(f"Font '{font_key}' registered successfully from {font_path}")
+                            pdfmetrics.registerFont(TTFont(font_name_reportlab, font_path))
+                            logging.debug(f"Font '{font_name_reportlab}' registered successfully from {font_path}")
                         except Exception as e:
-                            logging.warning(f"Error registering font '{font_key}': {str(e)}")
+                            logging.warning(f"Error registering font '{font_name_reportlab}': {str(e)}")
+                            # Attempt to register the base font if variants fail
+                            if font_key != text_font and text_font in pdfmetrics.getRegisteredFontNames():
+                                logging.warning(f"Using fallback base font '{text_font}' for '{font_name_reportlab}'")
+                                # ReportLab handles basic style simulation if font variant is missing, but logging is good
                     else:
-                        logging.warning(f"Font file not found for '{font_key}' at {font_path}")
+                        logging.warning(f"Font file not found for '{font_key}' ('{font_name_reportlab}') at {font_path if font_path else 'N/A'}. Ensure font is installed.")
 
-            # Fallback if Times New Roman fails
+            # Fallback if Times New Roman fails or braille font fails
             if text_font not in pdfmetrics.getRegisteredFontNames():
                 logging.warning(f"Text font '{text_font}' not registered, falling back to '{FALLBACK_FONT}'")
-                text_font = FALLBACK_FONT
+                text_font = FALLBACK_FONT # Use a system default that should exist
+
             if braille_font not in pdfmetrics.getRegisteredFontNames():
-                font_path = FONT_PATHS.get(braille_font)
-                if font_path and os.path.exists(font_path):
+                # Try to find Noto Sans Braille more generically
+                braille_font_path = None
+                braille_font_files = ["NotoSansBraille-Regular.ttf", "NotoSansSymbols2-Regular.ttf"]
+                for bf_file in braille_font_files:
+                    test_path = os.path.join(win_font_dir, bf_file)
+                    if os.path.exists(test_path):
+                        braille_font_path = test_path
+                        break
+
+                if braille_font_path and braille_font not in pdfmetrics.getRegisteredFontNames():
                     try:
-                        pdfmetrics.registerFont(TTFont(braille_font, font_path))
-                        logging.debug(f"Font '{braille_font}' registered successfully from {font_path}")
+                        pdfmetrics.registerFont(TTFont(braille_font, braille_font_path))
+                        logging.debug(f"Braille font '{braille_font}' registered successfully from {braille_font_path}")
                     except Exception as e:
-                        logging.error(f"Error registering font '{braille_font}': {str(e)}")
-                        braille_font = FALLBACK_FONT
+                        logging.error(f"Error registering Braille font '{braille_font}': {str(e)}. Falling back.")
+                        braille_font = FALLBACK_FONT # Fallback if registration fails
+                elif braille_font not in pdfmetrics.getRegisteredFontNames():
+                    logging.error(f"Braille font '{braille_font}' not found or registered. Ensure Noto Sans Braille is installed.")
+                    braille_font = FALLBACK_FONT # Fallback if not found or not registered
 
-            # Step 2: Configure PDF document with improved margins
-            doc = SimpleDocTemplate(
-                file_path,
-                pagesize=A4,
-                leftMargin=15 * mm,  # Marges plus confortables
-                rightMargin=15 * mm,
-                topMargin=20 * mm,
-                bottomMargin=20 * mm,
-                author=author if author else "Utilisateur non connecté",
-                title=doc_name,
-                subject="Conversion Texte/Braille",
-                creator="Convertisseur Texte ↔ Braille"
-            )
-
-            # Step 3: Define improved styles
+            # Définir les styles
             styles = getSampleStyleSheet()
             title_style = ParagraphStyle(
                 name="Title",
                 fontName=text_font,
-                fontSize=16,  # Taille de police plus grande pour le titre
-                spaceAfter=20,  # Plus d'espace après le titre
-                spaceBefore=10,  # Espace avant le titre
+                fontSize=16,
+                spaceAfter=20,
+                spaceBefore=10,
                 alignment=TA_CENTER,
-                textColor='#000000'  # Couleur noire pour le titre
+                textColor='#000000'
             )
             text_style = ParagraphStyle(
                 name="Text",
                 fontName=text_font,
                 fontSize=12,
-                spaceAfter=8,  # Plus d'espace entre les paragraphes
-                leading=14,  # Meilleur espacement des lignes
+                spaceAfter=8,
+                leading=14,
                 allowWidows=1,
                 allowOrphans=1,
-                textColor='#333333'  # Gris foncé pour le texte
+                textColor='#333333'
             )
             text_style_bold = ParagraphStyle(
                 name="TextBold",
@@ -340,7 +360,7 @@ class FileHandler:
                 leading=14,
                 allowWidows=1,
                 allowOrphans=1,
-                textColor='#000000'  # Noir pour le texte en gras
+                textColor='#000000'
             )
             text_style_italic = ParagraphStyle(
                 name="TextItalic",
@@ -405,27 +425,20 @@ class FileHandler:
             braille_style = ParagraphStyle(
                 name="Braille",
                 fontName=braille_font,
-                fontSize=14,  # Taille plus grande pour le braille
+                fontSize=14,
                 spaceAfter=8,
-                leading=16,  # Plus d'espacement pour le braille
+                leading=16,
                 allowWidows=1,
                 allowOrphans=1,
                 textColor='#000000'
             )
-
-            # Step 4: Initialize story and pagination parameters
-            story = []
-            lines_per_page = getattr(self.parent, 'lines_per_page', DEFAULT_LINES_PER_PAGE) if hasattr(self, 'parent') and self.parent else DEFAULT_LINES_PER_PAGE
-            line_width = getattr(self.parent, 'line_width', DEFAULT_LINE_WIDTH) if hasattr(self, 'parent') and self.parent else DEFAULT_LINE_WIDTH
-            indent_mm = getattr(self.parent, 'indent', DEFAULT_INDENT) if hasattr(self, 'parent') and self.parent else DEFAULT_INDENT
-            line_spacing = getattr(self.parent, 'line_spacing', DEFAULT_LINE_SPACING) if hasattr(self, 'parent') and self.parent else DEFAULT_LINE_SPACING
 
             # Helper function to wrap text with preserved spaces
             def wrap_text(text, width, allow_break=True):
                 """Wrap text to a specified width while preserving spaces."""
                 if not text or width < 1:
                     return text
-                # Avoid wrapping short texts like "Bienvenue dans le convertisseur"
+                # Avoid wrapping short texts
                 if len(text) <= width and not allow_break:
                     logging.debug(f"Text '{text[:50]}...' is short enough, no wrapping applied")
                     return text
@@ -447,17 +460,43 @@ class FileHandler:
                 logging.debug(f"Wrapped text: {wrapped[:100]}...")
                 return wrapped
 
-            # Step 5: Add title with improved formatting
-            story.append(Paragraph(f"<para alignment='center'><b>{doc_name}</b></para>", title_style))
-            story.append(Spacer(1, 20))  # Plus d'espace après le titre
+            # Créer le document PDF
+            doc = SimpleDocTemplate(
+                file_path,
+                pagesize=A4,
+                leftMargin=15 * mm,
+                rightMargin=15 * mm,
+                topMargin=20 * mm,
+                bottomMargin=20 * mm,
+                author=author if author else "Utilisateur non connecté",
+                title=doc_name,
+                subject="Conversion Texte/Braille",
+                creator="Convertisseur Texte ↔ Braille"
+            )
 
-            # Step 6: Export text content
+            # Liste pour stocker tous les éléments du document
+            story = []
+
+            # Ajouter le titre
+            story.append(Paragraph(f"<para alignment='center'><b>{doc_name}</b></para>", title_style))
+            story.append(Spacer(1, 20))
+
+            # Fonction pour gérer la pagination
+            def add_page_break_if_needed(current_lines, max_lines):
+                if current_lines >= max_lines:
+                    story.append(PageBreak())
+                    return 0
+                return current_lines
+
+            # Compteur de lignes pour la pagination
+            current_lines = 0
+
+            # Exporter le contenu texte
             if save_type in ["Texte + Braille", "Texte uniquement"]:
                 block = text_document.begin()
-                block_count = 0
                 while block.isValid():
                     if block.text().strip():
-                        # Determine alignment
+                        # Déterminer l'alignement
                         align = block.blockFormat().alignment()
                         alignment = TA_LEFT
                         if int(align) & 2:
@@ -467,8 +506,7 @@ class FileHandler:
                         elif int(align) & 8:
                             alignment = TA_JUSTIFY
 
-                        # Build paragraph text with formatting
-                        paragraph_parts = []
+                        # Traiter le bloc de texte
                         it = block.begin()
                         current_style = []
                         current_text = []
@@ -485,10 +523,9 @@ class FileHandler:
                                 if char_format.fontUnderline():
                                     new_style.append("u")
 
-                                # If style changes, create a new paragraph part
                                 if new_style != current_style:
                                     if current_text:
-                                        # Determine the style to use
+                                        # Appliquer les styles et ajouter au document
                                         style_to_use = text_style
                                         if "b" in current_style and "i" in current_style and "u" in current_style:
                                             style_to_use = text_style_bold_italic_underline
@@ -505,36 +542,39 @@ class FileHandler:
                                         elif "u" in current_style:
                                             style_to_use = text_style_underline
 
-                                        # Améliorer la mise en page des paragraphes
                                         style_to_use = ParagraphStyle(
-                                            name=f"TextBlock{block_count}_{len(paragraph_parts)}",
+                                            name=f"TextBlock_{len(story)}",
                                             parent=style_to_use,
                                             alignment=alignment,
                                             leftIndent=indent_mm * mm,
-                                            leading=14 * line_spacing,  # Meilleur espacement des lignes
-                                            spaceBefore=4,  # Espace avant le paragraphe
-                                            spaceAfter=8,  # Espace après le paragraphe
+                                            leading=14 * line_spacing,
+                                            spaceBefore=4,
+                                            spaceAfter=8,
                                             allowWidows=1,
                                             allowOrphans=1
                                         )
 
                                         full_text = "".join(current_text)
-                                        logging.debug(f"Paragraph part: {full_text[:100]}... with style {style_to_use.name}")
                                         wrapped_text = wrap_text(full_text, line_width, allow_break=len(full_text) > line_width)
                                         
-                                        # Appliquer le soulignement en utilisant des balises HTML
                                         if "u" in current_style:
                                             wrapped_text = f"<u>{wrapped_text}</u>"
                                         
                                         paragraph_html = f"<para>{wrapped_text}</para>" if wrapped_text else "<para> </para>"
-                                        paragraph_parts.append((paragraph_html, style_to_use))
+                                        story.append(Paragraph(paragraph_html, style_to_use))
+                                        
+                                        # Mettre à jour le compteur de lignes
+                                        current_lines += len(wrapped_text.split('<br/>'))
+                                        current_lines = add_page_break_if_needed(current_lines, lines_per_page)
+                                        
                                         current_text = []
                                 current_style = new_style[:]
                                 current_text.append(escape(text))
                             it += 1
 
-                        # Add the last part
+                        # Traiter le dernier fragment
                         if current_text:
+                            # (Même code que ci-dessus pour le dernier fragment)
                             style_to_use = text_style
                             if "b" in current_style and "i" in current_style and "u" in current_style:
                                 style_to_use = text_style_bold_italic_underline
@@ -552,173 +592,282 @@ class FileHandler:
                                 style_to_use = text_style_underline
 
                             style_to_use = ParagraphStyle(
-                                name=f"TextBlock{block_count}_{len(paragraph_parts)}",
+                                name=f"TextBlock_{len(story)}",
                                 parent=style_to_use,
                                 alignment=alignment,
                                 leftIndent=indent_mm * mm,
-                                leading=14 * line_spacing,  # Meilleur espacement des lignes
-                                spaceBefore=4,  # Espace avant le paragraphe
-                                spaceAfter=8,  # Espace après le paragraphe
+                                leading=14 * line_spacing,
+                                spaceBefore=4,
+                                spaceAfter=8,
                                 allowWidows=1,
                                 allowOrphans=1
                             )
 
                             full_text = "".join(current_text)
-                            logging.debug(f"Final paragraph part: {full_text[:100]}... with style {style_to_use.name}")
                             wrapped_text = wrap_text(full_text, line_width, allow_break=len(full_text) > line_width)
                             
-                            # Appliquer le soulignement en utilisant des balises HTML
                             if "u" in current_style:
                                 wrapped_text = f"<u>{wrapped_text}</u>"
                             
                             paragraph_html = f"<para>{wrapped_text}</para>" if wrapped_text else "<para> </para>"
-                            paragraph_parts.append((paragraph_html, style_to_use))
-
-                        # Add all paragraph parts to the story
-                        for html, style in paragraph_parts:
-                            story.append(Paragraph(html, style))
+                            story.append(Paragraph(paragraph_html, style_to_use))
+                            
+                            # Mettre à jour le compteur de lignes
+                            current_lines += len(wrapped_text.split('<br/>'))
+                            current_lines = add_page_break_if_needed(current_lines, lines_per_page)
 
                     block = block.next()
-                    block_count += 1
-                    if block_count % lines_per_page == 0 and block.isValid():
-                        story.append(Paragraph("<para>--- Page Break ---</para>", text_style))
-                        story.append(PageBreak())
 
-            # Step 7: Export Braille content
-            if save_type in ["Texte + Braille", "Braille uniquement"]:
+            # Ajouter un saut de page entre le texte et le braille si nécessaire
                 if save_type == "Texte + Braille":
-                    story.append(Spacer(1, 30))  # Plus d'espace avant la section braille
+                    story.append(PageBreak())
+                    story.append(Spacer(1, 30))
                     story.append(Paragraph("<para alignment='center'><b>=== Section Braille ===</b></para>", text_style))
                     story.append(Spacer(1, 20))
+                current_lines = 0
 
+            # Exporter le contenu braille
+            if save_type in ["Texte + Braille", "Braille uniquement"]:
                 braille_lines = braille_text.split('\n')
-                current_page_lines = []
-                line_count = 0
                 for line in braille_lines:
-                    if line_count >= lines_per_page:
-                        story.append(Paragraph("<para>--- Page Break ---</para>", braille_style))
-                        story.append(PageBreak())
-                        for saved_line in current_page_lines:
-                            p_style = ParagraphStyle(
-                                name=f"BrailleLine{line_count}",
-                                parent=braille_style,
-                                leftIndent=indent_mm * mm,
-                                leading=16 * line_spacing,  # Plus d'espacement pour le braille
-                                spaceBefore=2,
-                                spaceAfter=4,
-                                allowWidows=1,
-                                allowOrphans=1
-                            )
-                            wrapped_line = wrap_text(saved_line, line_width, allow_break=True)
-                            story.append(Paragraph(f"<para>{wrapped_line}</para>", p_style))
-                        current_page_lines = []
-                        line_count = 0
                     if line.strip():
-                        current_page_lines.append(escape(line))
-                        line_count += 1
-
-                if current_page_lines:
-                    for saved_line in current_page_lines:
                         p_style = ParagraphStyle(
-                            name=f"BrailleLine{line_count}",
+                            name=f"BrailleLine_{len(story)}",
                             parent=braille_style,
                             leftIndent=indent_mm * mm,
-                            leading=16 * line_spacing,  # Plus d'espacement pour le braille
+                            leading=16 * line_spacing,
                             spaceBefore=2,
                             spaceAfter=4,
                             allowWidows=1,
                             allowOrphans=1
                         )
-                        wrapped_line = wrap_text(saved_line, line_width, allow_break=True)
+                        wrapped_line = wrap_text(line, line_width, allow_break=True)
                         story.append(Paragraph(f"<para>{wrapped_line}</para>", p_style))
 
-            # Step 8: Build the PDF
-            logging.debug(f"Exporting PDF to {file_path} with {len(story)} story elements")
+                        # Mettre à jour le compteur de lignes
+                        current_lines += len(wrapped_line.split('<br/>'))
+                        current_lines = add_page_break_if_needed(current_lines, lines_per_page)
+
+            # Générer le PDF
             doc.build(story)
-            logging.info(f"PDF document exported successfully: {file_path}")
 
         except Exception as e:
-            logging.error(f"Error during PDF export: {str(e)}")
-            raise Exception(f"Error during PDF export: {str(e)}")
+            logging.error(f"Erreur lors de l'exportation PDF : {str(e)}")
+            raise
 
     def export_docx(self, file_path, text_document, braille_text, save_type, font_name=BRAILLE_FONT_NAME, doc_name="Document"):
         try:
-            from docx.shared import Pt, Inches
-            from PyQt5.QtGui import QFont
+            # Input validation
+            if not file_path or not isinstance(file_path, str):
+                raise ValueError("Invalid file path")
+            if not text_document and save_type in ["Texte + Braille", "Texte uniquement"]:
+                raise ValueError("Text document required for selected save type")
+            if not braille_text and save_type in ["Texte + Braille", "Braille uniquement"]:
+                raise ValueError("Braille text required for selected save type")
+            if save_type not in ["Texte + Braille", "Texte uniquement", "Braille uniquement"]:
+                raise ValueError("Invalid save type")
+
+            # Récupérer les paramètres de pagination
+            lines_per_page = getattr(self.parent, 'lines_per_page', DEFAULT_LINES_PER_PAGE) if hasattr(self, 'parent') and self.parent else DEFAULT_LINES_PER_PAGE
+            line_width = getattr(self.parent, 'line_width', DEFAULT_LINE_WIDTH) if hasattr(self, 'parent') and self.parent else DEFAULT_LINE_WIDTH
+            indent_mm = getattr(self.parent, 'indent', DEFAULT_INDENT) if hasattr(self, 'parent') and self.parent else DEFAULT_INDENT
+            line_spacing = getattr(self.parent, 'line_spacing', DEFAULT_LINE_SPACING) if hasattr(self, 'parent') and self.parent else DEFAULT_LINE_SPACING
+
+            # Créer le document Word
             doc = Document()
-            from docx.oxml.ns import qn
-            doc.add_heading(doc_name, level=0)
-            sections = doc.sections
-            for section in sections:
-                section.left_margin = Inches(10 / 25.4)
-                section.right_margin = Inches(10 / 25.4)
-                section.top_margin = Inches(10 / 25.4)
-                section.bottom_margin = Inches(10 / 25.4)
-            lines_per_page = self.parent.lines_per_page if self.parent else 25
-            line_width = self.parent.line_width if self.parent else 80
-            indent_mm = self.parent.indent if self.parent else 0
-            line_spacing = self.parent.line_spacing if self.parent else 1.0
+            
+            # Configuration des styles
+            styles = doc.styles
+            
+            # Style du titre
+            title_style = styles['Title']
+            title_style.font.name = TEXT_FONT_NAME
+            title_style.font.size = Pt(16)
+            title_style.paragraph_format.space_after = Pt(20)
+            title_style.paragraph_format.space_before = Pt(10)
+            title_style.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            
+            # Style du texte normal
+            text_style = styles['Normal']
+            text_style.font.name = TEXT_FONT_NAME
+            text_style.font.size = Pt(12)
+            text_style.paragraph_format.space_after = Pt(8)
+            text_style.paragraph_format.line_spacing = line_spacing
+            text_style.paragraph_format.first_line_indent = Pt(indent_mm)
+            
+            # Style du texte en gras
+            bold_style = styles.add_style('Bold', WD_STYLE_TYPE.PARAGRAPH)
+            bold_style.font.name = TEXT_FONT_NAME
+            bold_style.font.size = Pt(12)
+            bold_style.font.bold = True
+            bold_style.paragraph_format.space_after = Pt(8)
+            bold_style.paragraph_format.line_spacing = line_spacing
+            
+            # Style du texte en italique
+            italic_style = styles.add_style('Italic', WD_STYLE_TYPE.PARAGRAPH)
+            italic_style.font.name = TEXT_FONT_NAME
+            italic_style.font.size = Pt(12)
+            italic_style.font.italic = True
+            italic_style.paragraph_format.space_after = Pt(8)
+            italic_style.paragraph_format.line_spacing = line_spacing
+            
+            # Style du texte souligné
+            underline_style = styles.add_style('Underline', WD_STYLE_TYPE.PARAGRAPH)
+            underline_style.font.name = TEXT_FONT_NAME
+            underline_style.font.size = Pt(12)
+            underline_style.font.underline = WD_UNDERLINE.SINGLE
+            underline_style.paragraph_format.space_after = Pt(8)
+            underline_style.paragraph_format.line_spacing = line_spacing
+            
+            # Style du texte en gras et italique
+            bold_italic_style = styles.add_style('BoldItalic', WD_STYLE_TYPE.PARAGRAPH)
+            bold_italic_style.font.name = TEXT_FONT_NAME
+            bold_italic_style.font.size = Pt(12)
+            bold_italic_style.font.bold = True
+            bold_italic_style.font.italic = True
+            bold_italic_style.paragraph_format.space_after = Pt(8)
+            bold_italic_style.paragraph_format.line_spacing = line_spacing
+            
+            # Style du texte en gras et souligné
+            bold_underline_style = styles.add_style('BoldUnderline', WD_STYLE_TYPE.PARAGRAPH)
+            bold_underline_style.font.name = TEXT_FONT_NAME
+            bold_underline_style.font.size = Pt(12)
+            bold_underline_style.font.bold = True
+            bold_underline_style.font.underline = WD_UNDERLINE.SINGLE
+            bold_underline_style.paragraph_format.space_after = Pt(8)
+            bold_underline_style.paragraph_format.line_spacing = line_spacing
+            
+            # Style du texte en italique et souligné
+            italic_underline_style = styles.add_style('ItalicUnderline', WD_STYLE_TYPE.PARAGRAPH)
+            italic_underline_style.font.name = TEXT_FONT_NAME
+            italic_underline_style.font.size = Pt(12)
+            italic_underline_style.font.italic = True
+            italic_underline_style.font.underline = WD_UNDERLINE.SINGLE
+            italic_underline_style.paragraph_format.space_after = Pt(8)
+            italic_underline_style.paragraph_format.line_spacing = line_spacing
+            
+            # Style du texte en gras, italique et souligné
+            bold_italic_underline_style = styles.add_style('BoldItalicUnderline', WD_STYLE_TYPE.PARAGRAPH)
+            bold_italic_underline_style.font.name = TEXT_FONT_NAME
+            bold_italic_underline_style.font.size = Pt(12)
+            bold_italic_underline_style.font.bold = True
+            bold_italic_underline_style.font.italic = True
+            bold_italic_underline_style.font.underline = WD_UNDERLINE.SINGLE
+            bold_italic_underline_style.paragraph_format.space_after = Pt(8)
+            bold_italic_underline_style.paragraph_format.line_spacing = line_spacing
+            
+            # Style du texte en braille
+            braille_style = styles.add_style('Braille', WD_STYLE_TYPE.PARAGRAPH)
+            braille_style.font.name = font_name
+            braille_style.font.size = Pt(14)
+            braille_style.paragraph_format.space_after = Pt(8)
+            braille_style.paragraph_format.line_spacing = line_spacing
+
+            # Ajouter le titre
+            title = doc.add_heading(doc_name, level=1)
+            title.style = title_style
+
+            # Helper function to wrap text with preserved spaces
+            def wrap_text(text, width, allow_break=True):
+                """Wrap text to a specified width while preserving spaces."""
+                if not text or width < 1:
+                    return text
+                if len(text) <= width and not allow_break:
+                    return text
+                lines = []
+                current_line = ""
+                words = re.split(r'(\s+)', text)
+                for word in words:
+                    if not word.strip() and current_line:
+                        current_line += word
+                    elif len(current_line) + len(word) <= width:
+                        current_line += word
+                    else:
+                        if current_line:
+                            lines.append(current_line.rstrip())
+                        current_line = word
+                if current_line:
+                    lines.append(current_line.rstrip())
+                return "\n".join(lines)
+
+            # Exporter le contenu texte
             if save_type in ["Texte + Braille", "Texte uniquement"]:
                 block = text_document.begin()
-                block_count = 0
                 while block.isValid():
                     if block.text().strip():
-                        p = doc.add_paragraph()
+                        # Déterminer l'alignement
                         align = block.blockFormat().alignment()
-                        if int(align) & 2:
-                            p.alignment = 2  # RIGHT
-                        elif int(align) & 4:
-                            p.alignment = 1  # CENTER
-                        elif int(align) & 8:
-                            p.alignment = 3  # JUSTIFY
+                        alignment = WD_ALIGN_PARAGRAPH.LEFT
+                        if align == Qt.AlignCenter:
+                            alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        elif align == Qt.AlignRight:
+                            alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                        elif align == Qt.AlignJustify:
+                            alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+                        # Créer le paragraphe
+                        p = doc.add_paragraph()
+                        p.alignment = alignment
+
+                        # Appliquer le style de base
+                        p.style = text_style
+
+                        # Traiter les fragments de texte avec leurs styles
+                        block_layout = block.layout()
+                        if not block_layout:
+                            p.style = text_style
+                            p.add_run(text)
+                            continue
+
+                        for fragment in block.textFormats():
+                            text = fragment.text
+                            char_format = fragment.format
+                            # Appliquer le style approprié
+                            if char_format.fontWeight() == QFont.Bold and char_format.fontItalic() and char_format.fontUnderline():
+                                p.style = bold_italic_underline_style
+                            elif char_format.fontWeight() == QFont.Bold and char_format.fontItalic():
+                                p.style = bold_italic_style
+                            elif char_format.fontWeight() == QFont.Bold and char_format.fontUnderline():
+                                p.style = bold_underline_style
+                            elif char_format.fontItalic() and char_format.fontUnderline():
+                                p.style = italic_underline_style
+                            elif char_format.fontWeight() == QFont.Bold:
+                                p.style = bold_style
+                            elif char_format.fontItalic():
+                                p.style = italic_style
+                            elif char_format.fontUnderline():
+                                p.style = underline_style
                         else:
-                            p.alignment = 0  # LEFT
-                        p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
-                        p.paragraph_format.line_spacing = line_spacing
-                        it = block.begin()
-                        while not it.atEnd():
-                            fragment = it.fragment()
-                            if fragment.isValid():
-                                char_format = fragment.charFormat()
-                                run = p.add_run(fragment.text())
-                                run.font.name = font_name
-                                run.font.size = Pt(12)
-                                run.bold = char_format.fontWeight() == QFont.Bold
-                                run.italic = char_format.fontItalic()
-                                run.underline = char_format.fontUnderline()
-                            it += 1
+                                p.style = text_style
+                                p.add_run(text)
+
                     block = block.next()
-                    block_count += 1
-                    if block_count % lines_per_page == 0:
-                        doc.add_paragraph("--- Page Break ---")
-            if save_type in ["Texte + Braille", "Braille uniquement"]:
+
+            # Ajouter une page de séparation si nécessaire
                 if save_type == "Texte + Braille":
-                    doc.add_paragraph("=== Section Braille ===")
-                braille_lines = braille_text.split('\n')
-                current_page_lines = []
-                line_count = 0
-                for line in braille_lines:
-                    if line_count >= lines_per_page:
-                        doc.add_paragraph("--- Page Break ---")
-                        for saved_line in current_page_lines:
-                            p = doc.add_paragraph(saved_line)
-                            p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
-                            p.paragraph_format.line_spacing = line_spacing
-                        current_page_lines = []
-                        line_count = 0
+                    doc.add_page_break()
+
+            # Exporter le contenu braille
+            if save_type in ["Texte + Braille", "Braille uniquement"]:
+                # Ajouter un titre pour la section braille
+                braille_title = doc.add_heading("Texte en Braille", level=2)
+                braille_title.style = title_style
+
+                # Traiter le texte braille ligne par ligne
+                for line in braille_text.split('\n'):
                     if line.strip():
-                        current_page_lines.append(line)
-                        line_count += 1
-                if current_page_lines:
-                    doc.add_paragraph("--- Page Break ---")
-                    for saved_line in current_page_lines:
-                        p = doc.add_paragraph(saved_line)
-                        p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
-                        p.paragraph_format.line_spacing = line_spacing
+                        p = doc.add_paragraph()
+                        p.style = braille_style
+                        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                        p.add_run(line)
+
+            # Sauvegarder le document
             doc.save(file_path)
-            print(f"Document DOCX exporté avec succès : {file_path}")
+            logging.info(f"Document Word sauvegardé avec succès : {file_path}")
+
         except Exception as e:
-            raise Exception(f"Erreur lors de l'exportation en DOCX : {str(e)}")
+            logging.error(f"Erreur lors de l'exportation en Word : {str(e)}")
+            raise Exception(f"Erreur lors de l'exportation en Word : {str(e)}")
 
     def export_to_gcode(self, file_path):
         if self.last_gcode is None:

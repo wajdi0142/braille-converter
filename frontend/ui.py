@@ -171,7 +171,7 @@ class BrailleUI(QMainWindow):
         self.debounce_timer = QTimer()
         self.debounce_timer.setSingleShot(True)
         self.debounce_timer.timeout.connect(self.process_debounced_conversion)
-        self.debounce_delay = 300
+        self.debounce_delay = 100
 
         self.init_ui()
         
@@ -216,12 +216,14 @@ class BrailleUI(QMainWindow):
         if not tab:
             return
 
-        # Configurer le retour à la ligne pour la zone de texte
-        tab.text_input.setLineWrapMode(QTextEdit.WidgetWidth)  # Utiliser WidgetWidth
+        # Configurer le retour à la ligne pour la zone de texte en utilisant la largeur fixe
+        tab.text_input.setLineWrapMode(QTextEdit.FixedColumnWidth)
+        tab.text_input.setLineWrapColumnOrWidth(self.line_width)
         tab.text_input.setWordWrapMode(QTextOption.WordWrap)  # Activer le wrapping des mots
 
-        # Configurer le retour à la ligne pour la zone braille
-        tab.text_output.setLineWrapMode(QTextEdit.WidgetWidth)  # Utiliser WidgetWidth
+        # Configurer le retour à la ligne pour la zone braille en utilisant la largeur fixe
+        tab.text_output.setLineWrapMode(QTextEdit.FixedColumnWidth)
+        tab.text_output.setLineWrapColumnOrWidth(self.line_width)
         tab.text_output.setWordWrapMode(QTextOption.WordWrap)  # Activer le wrapping des mots
 
         # Retirer la définition de la largeur minimale pour laisser les widgets s'adapter au layout
@@ -471,6 +473,11 @@ class BrailleUI(QMainWindow):
         new_action.setShortcut("Ctrl+N")
         new_action.triggered.connect(self.new_document)
         file_menu.addAction(new_action)
+
+        # Ajouter l'action de test des styles
+        test_styles_action = QAction("Tester les styles PDF", self)
+        test_styles_action.triggered.connect(self.test_pdf_styles)
+        file_menu.addAction(test_styles_action)
 
         open_action = QAction("Ouvrir", self)
         open_action.setShortcut("Ctrl+O")
@@ -802,7 +809,7 @@ class BrailleUI(QMainWindow):
             if not text_input or not braille_output:
                 return
 
-            # Sauvegarder le texte et les styles
+            # Sauvegarder le texte et les styles (partie conservée si nécessaire)
             text_cursor = text_input.textCursor()
             text_has_selection = text_cursor.hasSelection()
             text_start = text_cursor.selectionStart() if text_has_selection else text_cursor.position()
@@ -813,7 +820,7 @@ class BrailleUI(QMainWindow):
             braille_start = braille_cursor.selectionStart() if braille_has_selection else braille_cursor.position()
             braille_end = braille_cursor.selectionEnd() if braille_has_selection else braille_cursor.position()
 
-            # Sauvegarder les documents formatés
+            # Sauvegarder les documents formatés (conservé pour préserver les styles)
             text_document = text_input.document().clone()
             braille_document = braille_output.document().clone()
 
@@ -821,18 +828,14 @@ class BrailleUI(QMainWindow):
             zoom_factor = value / 100.0
             new_font_size = int(self.base_font_size * zoom_factor)
 
-            # Appliquer la nouvelle taille de police aux zones de texte temporairement pour la mise à jour de la largeur de ligne
+            # Appliquer la nouvelle taille de police aux zones de texte temporairement
             temp_font_input = QFont(self.current_font, new_font_size)
             temp_font_output = QFont(self.current_font, new_font_size)
-            text_input.setFont(temp_font_input)
-            braille_output.setFont(temp_font_output)
 
-            # Mettre à jour la largeur de ligne basée sur la nouvelle taille de police
-            # Nous ne définissons plus la largeur minimale fixe ici, reliance sur WidgetWidth
-            self.update_line_width()
+            # Ne pas recalculer la largeur de ligne ici, utiliser celle définie par l'utilisateur
+            # self.update_line_width() # Cette ligne est supprimée
 
-            # Restaurer les documents formatés après la mise à jour de la largeur de ligne
-            # Note: setDocument réinitialise la police, donc nous devons la réappliquer.
+            # Restaurer les documents formatés (cela réinitialise la police)
             text_input.setDocument(text_document)
             braille_output.setDocument(braille_document)
 
@@ -859,16 +862,6 @@ class BrailleUI(QMainWindow):
 
             # Mettre à jour l'étiquette de zoom
             self.zoom_label.setText(f"Zoom: {value}%")
-
-            # Mettre à jour les styles visuels de la barre d'outils et de la barre de menus si nécessaire
-            style = f"font-size: {int(14 * zoom_factor)}px;"
-            toolbar_style = f"QToolButton {{ padding: {int(6 * zoom_factor)}px; }}"
-            menu_style = f"QMenuBar {{ font-size: {int(12 * zoom_factor)}px; }}"
-            if getattr(self, '_last_style', None) != (style, toolbar_style, menu_style):
-                self.central_widget.setStyleSheet(style)
-                self.toolbar.setStyleSheet(toolbar_style)
-                self.menuBar().setStyleSheet(menu_style)
-                self._last_style = (style, toolbar_style, menu_style)
 
         except Exception as e:
             logging.error(f"Erreur lors de la mise à jour du zoom : {str(e)}")
@@ -929,98 +922,23 @@ class BrailleUI(QMainWindow):
                 self.status_bar.showMessage("Ajustement de la largeur en cours...")
                 QApplication.processEvents()  # Permettre la mise à jour de l'interface
 
-                # Bloquer les signaux
-                tab.text_input.blockSignals(True)
-                tab.text_output.blockSignals(True)
-
-                # Sauvegarder l'état actuel
-                cursor = tab.text_input.textCursor()
-                has_selection = cursor.hasSelection()
-                selection_start = cursor.selectionStart()
-                selection_end = cursor.selectionEnd()
-
-                # Sauvegarder le document original
-                old_doc = tab.text_input.document()
-                current_text = old_doc.toPlainText()
+                # Sauvegarder l'état actuel (pour l'historique des modifications si nécessaire, ou juste pour la robustesse)
+                # Cette partie peut être simplifiée car nous ne reformatons pas immédiatement ici.
+                # cursor = tab.text_input.textCursor()
+                # has_selection = cursor.hasSelection()
+                # selection_start = cursor.selectionStart()
+                # selection_end = cursor.selectionEnd()
 
                 # Mettre à jour la largeur
                 self.line_width = width
                 self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
 
-                # Configurer le retour à la ligne
-                tab.text_input.setLineWrapMode(QTextEdit.FixedColumnWidth)
-                tab.text_input.setLineWrapColumnOrWidth(self.line_width)
-                tab.text_output.setLineWrapMode(QTextEdit.FixedColumnWidth)
-                tab.text_output.setLineWrapColumnOrWidth(self.line_width)
+                # Configurer le retour à la ligne pour qu'il s'adapte à la largeur du widget
+                # La logique de formatage pour l'export utilisera la self.line_width mise à jour.
+                self.apply_line_width_to_tab(tab) # Cette méthode devrait configurer WidgetWidth
 
-                if current_text.strip():
-                    # Formater le texte
-                    formatted_text = self.braille_engine.wrap_text_by_sentence(current_text, self.line_width)
-                    
-                    # Créer un nouveau document
-                    new_doc = QTextDocument()
-                    new_doc.setPlainText(formatted_text)
-                    
-                    # Copier les styles de base
-                    new_doc.setDefaultFont(old_doc.defaultFont())
-                    
-                    # Copier les styles de manière optimisée
-                    old_cursor = QTextCursor(old_doc)
-                    new_cursor = QTextCursor(new_doc)
-                    
-                    # Copier les styles bloc par bloc
-                    old_cursor.movePosition(QTextCursor.Start)
-                    new_cursor.movePosition(QTextCursor.Start)
-                    
-                    # Traiter les blocs par lots pour éviter le blocage
-                    block_count = 0
-                    while not old_cursor.atEnd():
-                        old_block = old_cursor.block()
-                        new_block = new_cursor.block()
-                        
-                        # Copier le format du bloc
-                        new_cursor.setBlockFormat(old_block.blockFormat())
-                        
-                        # Copier les styles caractère par caractère pour ce bloc
-                        old_char_cursor = QTextCursor(old_block)
-                        new_char_cursor = QTextCursor(new_block)
-                        
-                        old_char_cursor.movePosition(QTextCursor.StartOfBlock)
-                        new_char_cursor.movePosition(QTextCursor.StartOfBlock)
-                        
-                        while not old_char_cursor.atEnd():
-                            if old_char_cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.KeepAnchor):
-                                char_format = old_char_cursor.charFormat()
-                                new_char_cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.KeepAnchor)
-                                new_char_cursor.mergeCharFormat(char_format)
-                        
-                        old_cursor.movePosition(QTextCursor.NextBlock)
-                        new_cursor.movePosition(QTextCursor.NextBlock)
-                        
-                        # Permettre la mise à jour de l'interface tous les 5 blocs
-                        block_count += 1
-                        if block_count % 5 == 0:
-                            QApplication.processEvents()
-                    
-                    # Appliquer le nouveau document
-                    tab.text_input.setDocument(new_doc)
-                    
-                    # Restaurer la sélection
-                    if has_selection:
-                        cursor = tab.text_input.textCursor()
-                        cursor.setPosition(selection_start)
-                        cursor.setPosition(selection_end, QTextCursor.KeepAnchor)
-                        tab.text_input.setTextCursor(cursor)
-                    
-                    # Mettre à jour le braille
-                    selected_table = self.table_combo.currentText()
-                    if selected_table:
-                        formatted_braille = self.braille_engine.to_braille(formatted_text, 
-                                                                         self.available_tables[selected_table], 
-                                                                         self.line_width)
-                        tab.text_output.setPlainText(formatted_braille)
-                        tab.original_braille = formatted_braille
-                    tab.original_text = formatted_text
+                # Déclencher la mise à jour de la conversion (qui est debounced et threaded)
+                self.update_conversion()
 
                 self.status_bar.showMessage(f"Largeur des lignes ajustée à {self.line_width} caractères", 3000)
 
@@ -1028,10 +946,8 @@ class BrailleUI(QMainWindow):
                 logging.error(f"Erreur lors de l'ajustement de la largeur : {str(e)}")
                 self.status_bar.showMessage("Erreur lors de l'ajustement de la largeur", 3000)
             finally:
-                # Réactiver les signaux
-                tab.text_input.blockSignals(False)
-                tab.text_output.blockSignals(False)
-                self.update_conversion()
+                # Les signaux sont gérés par update_conversion maintenant si nécessaire
+                pass # Aucun besoin de blockSignals/unblockSignals ici directement
 
     def adjust_lines_per_page(self):
         lines_per_page, ok = QInputDialog.getInt(
@@ -1143,7 +1059,6 @@ class BrailleUI(QMainWindow):
         else:
             self.showMaximized()
             self.toggle_size_button.setIcon(self.safe_icon("icons/restore.png"))
-        self.update_line_width()
         self.update_conversion()
 
     def sync_text_areas(self, tab):
@@ -1817,8 +1732,8 @@ class BrailleUI(QMainWindow):
         if not tab:
             return
         if not tab.is_updating:
-            logging.debug("on_text_changed: déclencher update_conversion avec debouncing")
-            self.debounce_timer.start(self.debounce_delay)
+            logging.debug("on_text_changed: conversion en temps réel")
+            self.update_conversion()
 
     def process_debounced_conversion(self):
         tab = self.tab_widget.currentWidget()
@@ -1978,7 +1893,8 @@ class BrailleUI(QMainWindow):
         if not self.resize_timer.isActive():
             tab = self.tab_widget.currentWidget()
             if tab:
-                self.update_line_width()
+                # Supprimer l'appel à update_line_width() ici
+                # self.update_line_width()
                 self.update_conversion()
 
     def update_line_width(self):
@@ -2043,6 +1959,135 @@ class BrailleUI(QMainWindow):
     def mouseMoveEvent(self, event):
         # Empêcher la propagation de l'événement si nécessaire
         super().mouseMoveEvent(event)
+
+    def test_pdf_styles(self):
+        """Teste l'exportation PDF avec différents styles de texte."""
+        tab = self.tab_widget.currentWidget()
+        if not tab:
+            return
+
+        # Créer un texte de test avec différents styles
+        test_text = """Test des styles dans l'exportation PDF
+
+Texte normal
+Texte en gras
+Texte en italique
+Texte souligné
+Texte en gras et italique
+Texte en gras et souligné
+Texte en italique et souligné
+Texte en gras, italique et souligné
+
+Paragraphe avec alignement à gauche
+Paragraphe avec alignement au centre
+Paragraphe avec alignement à droite
+Paragraphe avec alignement justifié
+
+Texte avec retrait
+Texte avec espacement des lignes modifié
+Texte avec différentes tailles de police"""
+
+        # Appliquer les styles
+        cursor = tab.text_input.textCursor()
+        cursor.select(QTextCursor.Document)
+        cursor.removeSelectedText()
+        cursor.insertText(test_text)
+
+        # Réinitialiser le curseur
+        cursor.setPosition(0)
+        cursor.movePosition(QTextCursor.Start)
+
+        # Appliquer les styles ligne par ligne
+        lines = test_text.split('\n')
+        for i, line in enumerate(lines):
+            if line.strip():
+                cursor.movePosition(QTextCursor.StartOfLine)
+                cursor.movePosition(QTextCursor.EndOfLine, QTextCursor.KeepAnchor)
+                
+                # Appliquer les styles selon la ligne
+                if "gras" in line.lower():
+                    fmt = QTextCharFormat()
+                    fmt.setFontWeight(QFont.Bold)
+                    cursor.mergeCharFormat(fmt)
+                if "italique" in line.lower():
+                    fmt = QTextCharFormat()
+                    fmt.setFontItalic(True)
+                    cursor.mergeCharFormat(fmt)
+                if "souligné" in line.lower():
+                    fmt = QTextCharFormat()
+                    fmt.setFontUnderline(True)
+                    cursor.mergeCharFormat(fmt)
+                
+                # Appliquer les alignements
+                if "gauche" in line.lower():
+                    block_format = QTextBlockFormat()
+                    block_format.setAlignment(Qt.AlignLeft)
+                    cursor.setBlockFormat(block_format)
+                elif "centre" in line.lower():
+                    block_format = QTextBlockFormat()
+                    block_format.setAlignment(Qt.AlignCenter)
+                    cursor.setBlockFormat(block_format)
+                elif "droite" in line.lower():
+                    block_format = QTextBlockFormat()
+                    block_format.setAlignment(Qt.AlignRight)
+                    cursor.setBlockFormat(block_format)
+                elif "justifié" in line.lower():
+                    block_format = QTextBlockFormat()
+                    block_format.setAlignment(Qt.AlignJustify)
+                    cursor.setBlockFormat(block_format)
+                
+                # Appliquer le retrait
+                if "retrait" in line.lower():
+                    block_format = QTextBlockFormat()
+                    block_format.setTextIndent(20)
+                    cursor.setBlockFormat(block_format)
+                
+                # Appliquer l'espacement des lignes
+                if "espacement" in line.lower():
+                    block_format = QTextBlockFormat()
+                    block_format.setLineHeight(150, QTextBlockFormat.ProportionalHeight)
+                    cursor.setBlockFormat(block_format)
+                
+                # Appliquer différentes tailles de police
+                if "tailles" in line.lower():
+                    fmt = QTextCharFormat()
+                    fmt.setFontPointSize(16)
+                    cursor.mergeCharFormat(fmt)
+            
+            cursor.movePosition(QTextCursor.NextBlock)
+
+        # Mettre à jour la conversion
+        self.update_conversion()
+
+        # Exporter en PDF
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Sauvegarder le test des styles",
+            "",
+            "Fichiers PDF (*.pdf)"
+        )
+        
+        if file_path:
+            try:
+                self.file_handler.export_pdf(
+                    file_path,
+                    tab.text_input.document(),
+                    tab.text_output.toPlainText(),
+                    "Texte + Braille",
+                    font_name=self.current_font,
+                    doc_name="Test des styles PDF"
+                )
+                QMessageBox.information(
+                    self,
+                    "Test des styles",
+                    "Le fichier PDF de test a été généré avec succès.\nVeuillez vérifier que tous les styles sont correctement appliqués."
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Erreur",
+                    f"Erreur lors de la génération du PDF de test : {str(e)}"
+                )
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

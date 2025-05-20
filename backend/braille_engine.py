@@ -1,4 +1,3 @@
-# backend/braille_engine.py
 import subprocess
 import os
 import unicodedata
@@ -85,15 +84,16 @@ class BrailleEngine:
     def wrap_text_by_sentence(self, text, width=33, preserve_newlines=True):
         """
         Formate le texte en respectant les contraintes suivantes :
-        - Ne coupe pas les mots (retour à la ligne uniquement après un espace).
+        - Ne coupe pas les mots sauf si un mot dépasse la largeur maximale.
         - Ne divise les phrases qu'après un point (.), sauf si la ligne dépasse la largeur maximale.
-        - Préserve les espaces multiples.
-        
+        - Préserve les espaces multiples et les sauts de ligne si preserve_newlines=True.
+        - Déplace les mots trop longs à la ligne suivante si possible.
+
         Args:
             text (str): Texte à formater.
             width (int): Largeur maximale de la ligne en caractères.
             preserve_newlines (bool): Conserver les sauts de ligne existants.
-        
+
         Returns:
             str: Texte formaté avec des retours à la ligne appropriés.
         """
@@ -115,32 +115,41 @@ class BrailleEngine:
                 wrapped_lines.append("")
                 continue
 
-            segments = re.split(r'(\s+|[^\s.]+(?:\.[^\s.]|$))', line)
-            segments = [s for s in segments if s]
+            # Séparer en mots et espaces
+            words = re.split(r'(\s+)', line)
+            words = [w for w in words if w]  # Supprimer les éléments vides
             current_line = ""
             line_segments = []
 
-            for segment in segments:
-                if segment.isspace():
-                    if len(current_line) + len(segment) <= width:
-                        current_line += segment
+            for word in words:
+                # Si c'est un espace
+                if word.isspace():
+                    if len(current_line) + len(word) <= width:
+                        current_line += word
                     else:
                         if current_line:
                             line_segments.append(current_line.rstrip())
-                        current_line = segment.lstrip()
+                        current_line = word.lstrip()
                     continue
 
-                if len(current_line) + len(segment) <= width:
-                    current_line += segment
+                # Si c'est un mot
+                if len(current_line) + len(word) <= width:
+                    current_line += word
                 else:
+                    # Si la ligne actuelle n'est pas vide, on la sauvegarde
                     if current_line:
                         line_segments.append(current_line.rstrip())
-                        current_line = segment
+                    
+                    # Si le mot est plus long que la largeur maximale
+                    if len(word) > width:
+                        # On coupe le mot seulement s'il est vraiment trop long
+                        while len(word) > width:
+                            line_segments.append(word[:width])
+                            word = word[width:]
+                        current_line = word
                     else:
-                        while len(segment) > width:
-                            line_segments.append(segment[:width])
-                            segment = segment[width:]
-                        current_line = segment
+                        # Sinon on commence une nouvelle ligne avec ce mot
+                        current_line = word
 
             if current_line:
                 line_segments.append(current_line.rstrip())
@@ -318,7 +327,6 @@ class BrailleEngine:
                         non_empty_idx += 1
 
             braille_output = "\n".join(braille_result).rstrip()
-            # Ne pas synchroniser pendant la frappe
             if not is_typing:
                 synced_text, synced_braille = self.sync_lines(text, braille_output, line_width, preserve_newlines=True)
                 if section_separator:
@@ -398,7 +406,6 @@ class BrailleEngine:
                         non_empty_idx += 1
 
             text_output = "\n".join(text_result).rstrip()
-            # Ne pas synchroniser pendant la frappe
             if not is_typing:
                 synced_text, synced_braille = self.sync_lines(text_output, braille_text, line_width, preserve_newlines=True)
                 return synced_text.rstrip()

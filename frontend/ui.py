@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
     QApplication, QSpacerItem, QSizePolicy, QProgressDialog, QFontComboBox
 )
 from PyQt5.QtCore import Qt, QTimer, QEvent, QTime, QSize, QThread, pyqtSignal
-from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat, QFontMetrics
+from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat, QFontMetrics , QTextDocument , QTextOption
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from backend.braille_engine import BrailleEngine
 from backend.file_handler import FileHandler
@@ -151,8 +151,8 @@ class BrailleUI(QMainWindow):
         self.available_tables = self.braille_engine.get_available_tables()
 
         self.dark_mode = False
-        self.line_width = 33
         self.min_line_width = 5
+        self.line_width = 33  # Valeur par défaut initiale
         self.lines_per_page = 29
         self.line_spacing = 1.0
         self.indent = 0
@@ -174,6 +174,117 @@ class BrailleUI(QMainWindow):
         self.debounce_delay = 300
 
         self.init_ui()
+        
+        # Calculer la largeur initiale après l'initialisation de l'interface
+        QTimer.singleShot(100, self.calculate_initial_line_width)
+
+    def calculate_initial_line_width(self):
+        """Calcule la largeur de ligne initiale en fonction de la taille de la fenêtre."""
+        tab = self.tab_widget.currentWidget()
+        if tab:
+            try:
+                # Calculer la largeur pour les deux zones
+                font_metrics_input = QFontMetrics(tab.text_input.font())
+                font_metrics_output = QFontMetrics(tab.text_output.font())
+                char_width_input = font_metrics_input.averageCharWidth()
+                char_width_output = font_metrics_output.averageCharWidth()
+                scale = self.zoom_slider.value() / 100.0
+                
+                # Utiliser la plus petite largeur disponible pour les deux zones
+                available_width_input = tab.text_input.viewport().width()
+                available_width_output = tab.text_output.viewport().width()
+                available_width = min(available_width_input, available_width_output)
+                
+                # Calculer la largeur en utilisant la plus grande largeur de caractère
+                char_width = max(char_width_input, char_width_output)
+                new_width = max(self.min_line_width, int(available_width / (char_width * scale)))
+                
+                if new_width != self.line_width:
+                    self.line_width = new_width
+                    self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
+                    
+                    # Configurer le retour à la ligne pour les deux zones
+                    self.apply_line_width_to_tab(tab)
+                    
+                    self.update_conversion()
+            except Exception as e:
+                logging.error(f"Erreur lors du calcul de la largeur initiale : {str(e)}")
+                self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
+
+    def apply_line_width_to_tab(self, tab):
+        """Applique la largeur de ligne aux deux zones de texte et configure le retour à la ligne."""
+        if not tab:
+            return
+
+        # Configurer le retour à la ligne pour la zone de texte
+        tab.text_input.setLineWrapMode(QTextEdit.WidgetWidth)  # Utiliser WidgetWidth
+        tab.text_input.setWordWrapMode(QTextOption.WordWrap)  # Activer le wrapping des mots
+
+        # Configurer le retour à la ligne pour la zone braille
+        tab.text_output.setLineWrapMode(QTextEdit.WidgetWidth)  # Utiliser WidgetWidth
+        tab.text_output.setWordWrapMode(QTextOption.WordWrap)  # Activer le wrapping des mots
+
+        # Retirer la définition de la largeur minimale pour laisser les widgets s'adapter au layout
+        # self.line_width sera utilisé par la logique de formatage du texte avant la conversion
+        # tab.text_input.setMinimumWidth(0) # On ne force plus de largeur minimale
+        # tab.text_output.setMinimumWidth(0) # On ne force plus de largeur minimale
+
+        # Le formatage du texte basé sur self.line_width est géré par BrailleEngine.wrap_text_by_sentence
+        # dans les méthodes de conversion et de mise à jour. Il n'est pas nécessaire de re-formater ici
+        # sauf si l'on voulait forcer un re-rendu visuel, ce que WidgetWidth gère.
+
+        # Mettre à jour le braille si le texte d'entrée n'est pas vide pour s'assurer que
+        # la conversion utilise la self.line_width calculée.
+        if tab.text_input.toPlainText().strip():
+             self.update_conversion()
+
+    def update_line_width(self):
+        """Calcule et applique la largeur de ligne aux zones de texte."""
+        tab = self.tab_widget.currentWidget()
+        if not tab:
+            return
+
+        try:
+            # Calculer la nouvelle largeur
+            font_metrics_input = QFontMetrics(tab.text_input.font())
+            font_metrics_output = QFontMetrics(tab.text_output.font())
+            char_width_input = font_metrics_input.averageCharWidth()
+            char_width_output = font_metrics_output.averageCharWidth()
+            scale = self.zoom_slider.value() / 100.0
+
+            # Utiliser la plus petite largeur disponible pour les deux zones
+            # Ajouter une petite marge pour éviter les problèmes d'arrondi ou de scrollbar
+            available_width_input = tab.text_input.viewport().width() - 20 # Marge de 20 pixels
+            available_width_output = tab.text_output.viewport().width() - 20 # Marge de 20 pixels
+            available_width = min(available_width_input, available_width_output)
+            available_width = max(1, available_width) # Assurer une largeur minimale de 1
+
+            # Calculer la largeur en utilisant la plus grande largeur de caractère
+            char_width = max(char_width_input, char_width_output)
+            
+            # Éviter la division par zéro et les largeurs négatives ou nulles
+            if char_width <= 0 or scale <= 0:
+                new_width = self.min_line_width
+            else:
+                new_width = max(self.min_line_width, int(available_width / (char_width * scale)))
+            
+            # Limiter la largeur maximale à une valeur raisonnable pour éviter les géométries excessives
+            max_reasonable_width = 200 # Par exemple, limiter à 200 caractères
+            new_width = min(new_width, max_reasonable_width)
+
+
+            if new_width != self.line_width:
+                self.line_width = new_width
+                self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
+
+                # Appliquer la nouvelle largeur aux deux zones
+                self.apply_line_width_to_tab(tab)
+
+                self.status_bar.showMessage(f"Largeur des lignes ajustée à {self.line_width} caractères", 3000)
+
+        except Exception as e:
+            logging.error(f"Erreur lors de la mise à jour de la largeur : {str(e)}")
+            self.status_bar.showMessage("Erreur lors de l'ajustement de la largeur", 3000)
 
     def init_ui(self):
         self.central_widget = QWidget()
@@ -405,13 +516,35 @@ class BrailleUI(QMainWindow):
         dark_mode_action = QAction("Activer/Désactiver le mode sombre", self)
         dark_mode_action.triggered.connect(self.toggle_dark_mode)
         settings_menu.addAction(dark_mode_action)
-        settings_menu.addAction("Ajuster la largeur des lignes", self.adjust_line_width)
-        settings_menu.addAction("Ajuster le nombre de lignes par page", self.adjust_lines_per_page)
-        settings_menu.addAction("Ajuster l'interligne", self.adjust_line_spacing)
-        settings_menu.addAction("Ajuster le retrait", self.adjust_indent)
-        settings_menu.addAction("Personnaliser table Braille", self.show_custom_table)
-        settings_menu.addAction("Voir les statistiques d'utilisation", self.show_usage_stats)
-        settings_menu.addAction("Tester la conversion", self.test_conversion)
+        
+        # Ajouter les actions de paramètres avec des QAction
+        line_width_action = QAction("Ajuster la largeur des lignes", self)
+        line_width_action.triggered.connect(self.adjust_line_width)
+        settings_menu.addAction(line_width_action)
+        
+        lines_per_page_action = QAction("Ajuster le nombre de lignes par page", self)
+        lines_per_page_action.triggered.connect(self.adjust_lines_per_page)
+        settings_menu.addAction(lines_per_page_action)
+        
+        line_spacing_action = QAction("Ajuster l'interligne", self)
+        line_spacing_action.triggered.connect(self.adjust_line_spacing)
+        settings_menu.addAction(line_spacing_action)
+        
+        indent_action = QAction("Ajuster le retrait", self)
+        indent_action.triggered.connect(self.adjust_indent)
+        settings_menu.addAction(indent_action)
+        
+        custom_table_action = QAction("Personnaliser table Braille", self)
+        custom_table_action.triggered.connect(self.show_custom_table)
+        settings_menu.addAction(custom_table_action)
+        
+        stats_action = QAction("Voir les statistiques d'utilisation", self)
+        stats_action.triggered.connect(self.show_usage_stats)
+        settings_menu.addAction(stats_action)
+        
+        test_action = QAction("Tester la conversion", self)
+        test_action.triggered.connect(self.test_conversion)
+        settings_menu.addAction(test_action)
 
         edit_menu = menu_bar.addMenu("Édition")
         edit_menu.addAction("Effacer le texte", self.clear_text)
@@ -622,6 +755,8 @@ class BrailleUI(QMainWindow):
         if not tab:
             return
         cursor = tab.text_input.textCursor()
+        if not cursor.hasSelection():
+            return
         fmt = QTextCharFormat()
         fmt.setFontWeight(QFont.Bold if not cursor.charFormat().fontWeight() == QFont.Bold else QFont.Normal)
         cursor.mergeCharFormat(fmt)
@@ -633,6 +768,8 @@ class BrailleUI(QMainWindow):
         if not tab:
             return
         cursor = tab.text_input.textCursor()
+        if not cursor.hasSelection():
+            return
         fmt = QTextCharFormat()
         fmt.setFontItalic(not cursor.charFormat().fontItalic())
         cursor.mergeCharFormat(fmt)
@@ -644,30 +781,98 @@ class BrailleUI(QMainWindow):
         if not tab:
             return
         cursor = tab.text_input.textCursor()
+        if not cursor.hasSelection():
+            return
         fmt = QTextCharFormat()
         fmt.setFontUnderline(not cursor.charFormat().fontUnderline())
         cursor.mergeCharFormat(fmt)
         self.sync_text_areas(tab)
         self.update_counters()
 
-    def apply_zoom(self):
-        scale = self.zoom_slider.value() / 100.0
-        self.zoom_label.setText(f"Zoom: {self.zoom_slider.value()}%")
-        style = f"font-size: {int(14 * scale)}px;"
-        toolbar_style = f"QToolButton {{ padding: {int(6 * scale)}px; }}"
-        menu_style = f"QMenuBar {{ font-size: {int(12 * scale)}px; }}"
-        if getattr(self, '_last_style', None) != (style, toolbar_style, menu_style):
-            self.central_widget.setStyleSheet(style)
-            self.toolbar.setStyleSheet(toolbar_style)
-            self.menuBar().setStyleSheet(menu_style)
-            self._last_style = (style, toolbar_style, menu_style)
-        tab = self.tab_widget.currentWidget()
-        if tab:
-            font_size = int(self.base_font_size * scale)
-            tab.text_input.setFont(QFont(self.current_font, font_size))
-            tab.text_output.setFont(QFont(self.current_font, font_size))
-        self.update_line_width()
-        self.update_conversion()
+    def apply_zoom(self, value):
+        """Met à jour le niveau de zoom pour les deux zones de texte et préserve les formats."""
+        try:
+            current_tab = self.tab_widget.currentWidget()
+            if not current_tab:
+                return
+
+            text_input = current_tab.text_input
+            braille_output = current_tab.text_output
+
+            if not text_input or not braille_output:
+                return
+
+            # Sauvegarder le texte et les styles
+            text_cursor = text_input.textCursor()
+            text_has_selection = text_cursor.hasSelection()
+            text_start = text_cursor.selectionStart() if text_has_selection else text_cursor.position()
+            text_end = text_cursor.selectionEnd() if text_has_selection else text_cursor.position()
+
+            braille_cursor = braille_output.textCursor()
+            braille_has_selection = braille_cursor.hasSelection()
+            braille_start = braille_cursor.selectionStart() if braille_has_selection else braille_cursor.position()
+            braille_end = braille_cursor.selectionEnd() if braille_has_selection else braille_cursor.position()
+
+            # Sauvegarder les documents formatés
+            text_document = text_input.document().clone()
+            braille_document = braille_output.document().clone()
+
+            # Appliquer le nouveau zoom à la taille de base de la police
+            zoom_factor = value / 100.0
+            new_font_size = int(self.base_font_size * zoom_factor)
+
+            # Appliquer la nouvelle taille de police aux zones de texte temporairement pour la mise à jour de la largeur de ligne
+            temp_font_input = QFont(self.current_font, new_font_size)
+            temp_font_output = QFont(self.current_font, new_font_size)
+            text_input.setFont(temp_font_input)
+            braille_output.setFont(temp_font_output)
+            
+            # Mettre à jour la largeur de ligne basée sur la nouvelle taille de police
+            self.update_line_width()
+
+            # Restaurer les documents formatés après la mise à jour de la largeur de ligne
+            # Note: setDocument réinitialise la police, donc nous devons la réappliquer.
+            text_input.setDocument(text_document)
+            braille_output.setDocument(braille_document)
+            
+            # Réappliquer la nouvelle taille de police après la restauration du document
+            text_input.setFont(temp_font_input)
+            braille_output.setFont(temp_font_output)
+
+            # Restaurer les curseurs et sélections
+            text_cursor_restore = text_input.textCursor()
+            if text_has_selection:
+                text_cursor_restore.setPosition(text_start)
+                text_cursor_restore.setPosition(text_end, QTextCursor.KeepAnchor)
+            else:
+                text_cursor_restore.setPosition(text_start)
+            text_input.setTextCursor(text_cursor_restore)
+
+            braille_cursor_restore = braille_output.textCursor()
+            if braille_has_selection:
+                braille_cursor_restore.setPosition(braille_start)
+                braille_cursor_restore.setPosition(braille_end, QTextCursor.KeepAnchor)
+            else:
+                braille_cursor_restore.setPosition(braille_start)
+            braille_output.setTextCursor(braille_cursor_restore)
+
+            # Mettre à jour l'étiquette de zoom
+            self.zoom_label.setText(f"Zoom: {value}%")
+
+            # Mettre à jour les styles visuels de la barre d'outils et de la barre de menus si nécessaire
+            style = f"font-size: {int(14 * zoom_factor)}px;"
+            toolbar_style = f"QToolButton {{ padding: {int(6 * zoom_factor)}px; }}"
+            menu_style = f"QMenuBar {{ font-size: {int(12 * zoom_factor)}px; }}"
+            if getattr(self, '_last_style', None) != (style, toolbar_style, menu_style):
+                self.central_widget.setStyleSheet(style)
+                self.toolbar.setStyleSheet(toolbar_style)
+                self.menuBar().setStyleSheet(menu_style)
+                self._last_style = (style, toolbar_style, menu_style)
+
+
+        except Exception as e:
+            logging.error(f"Erreur lors de la mise à jour du zoom : {str(e)}")
+            QMessageBox.warning(self, "Erreur", f"Erreur lors de la mise à jour du zoom : {str(e)}")
 
     def adjust_font_size(self):
         font_size = self.font_size_spin.value()
@@ -703,56 +908,130 @@ class BrailleUI(QMainWindow):
         self.update_counters()
 
     def adjust_line_width(self):
-        line_width, ok = QInputDialog.getInt(
+        tab = self.tab_widget.currentWidget()
+        if not tab:
+            return
+
+        current_width = self.line_width
+        width, ok = QInputDialog.getInt(
             self,
-            "Ajuster la largeur des lignes",
-            "Entrez la largeur de ligne (caractères) :",
-            self.line_width,
-            5,
-            120,
-            1,
+            "Largeur des lignes",
+            "Entrez la largeur des lignes (en caractères) :",
+            current_width,
+            self.min_line_width,
+            200,  # Maximum raisonnable
+            1
         )
-        if ok:
-            if line_width < 5:
-                QMessageBox.warning(self, "Erreur", "La largeur de ligne doit être d'au moins 5 caractères.")
-                self.line_width = 5
-            else:
-                self.line_width = line_width
-            self.min_line_width = self.line_width
-            self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
-            tab = self.tab_widget.currentWidget()
-            if tab:
+        
+        if ok and width != current_width:
+            try:
+                # Afficher un message de progression
+                self.status_bar.showMessage("Ajustement de la largeur en cours...")
+                QApplication.processEvents()  # Permettre la mise à jour de l'interface
+
+                # Bloquer les signaux
                 tab.text_input.blockSignals(True)
                 tab.text_output.blockSignals(True)
 
-                current_text = tab.text_input.toPlainText()
-                current_braille = tab.text_output.toPlainText()
+                # Sauvegarder l'état actuel
+                cursor = tab.text_input.textCursor()
+                has_selection = cursor.hasSelection()
+                selection_start = cursor.selectionStart()
+                selection_end = cursor.selectionEnd()
 
-                if current_text.strip():
-                    formatted_text = self.braille_engine.wrap_text_by_sentence(current_text, self.line_width)
-                    tab.text_input.setPlainText(formatted_text)
-                    tab.original_text = formatted_text
-                if current_braille.strip():
-                    formatted_braille = self.braille_engine.wrap_text_by_sentence(current_braille, self.line_width)
-                    tab.text_output.setPlainText(formatted_braille)
-                    tab.original_braille = formatted_braille
+                # Sauvegarder le document original
+                old_doc = tab.text_input.document()
+                current_text = old_doc.toPlainText()
 
+                # Mettre à jour la largeur
+                self.line_width = width
+                self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
+
+                # Configurer le retour à la ligne
                 tab.text_input.setLineWrapMode(QTextEdit.FixedColumnWidth)
                 tab.text_input.setLineWrapColumnOrWidth(self.line_width)
                 tab.text_output.setLineWrapMode(QTextEdit.FixedColumnWidth)
                 tab.text_output.setLineWrapColumnOrWidth(self.line_width)
 
+                if current_text.strip():
+                    # Formater le texte
+                    formatted_text = self.braille_engine.wrap_text_by_sentence(current_text, self.line_width)
+                    
+                    # Créer un nouveau document
+                    new_doc = QTextDocument()
+                    new_doc.setPlainText(formatted_text)
+                    
+                    # Copier les styles de base
+                    new_doc.setDefaultFont(old_doc.defaultFont())
+                    
+                    # Copier les styles de manière optimisée
+                    old_cursor = QTextCursor(old_doc)
+                    new_cursor = QTextCursor(new_doc)
+                    
+                    # Copier les styles bloc par bloc
+                    old_cursor.movePosition(QTextCursor.Start)
+                    new_cursor.movePosition(QTextCursor.Start)
+                    
+                    # Traiter les blocs par lots pour éviter le blocage
+                    block_count = 0
+                    while not old_cursor.atEnd():
+                        old_block = old_cursor.block()
+                        new_block = new_cursor.block()
+                        
+                        # Copier le format du bloc
+                        new_cursor.setBlockFormat(old_block.blockFormat())
+                        
+                        # Copier les styles caractère par caractère pour ce bloc
+                        old_char_cursor = QTextCursor(old_block)
+                        new_char_cursor = QTextCursor(new_block)
+                        
+                        old_char_cursor.movePosition(QTextCursor.StartOfBlock)
+                        new_char_cursor.movePosition(QTextCursor.StartOfBlock)
+                        
+                        while not old_char_cursor.atEnd():
+                            if old_char_cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.KeepAnchor):
+                                char_format = old_char_cursor.charFormat()
+                                new_char_cursor.movePosition(QTextCursor.NextCharacter, QTextCursor.KeepAnchor)
+                                new_char_cursor.mergeCharFormat(char_format)
+                        
+                        old_cursor.movePosition(QTextCursor.NextBlock)
+                        new_cursor.movePosition(QTextCursor.NextBlock)
+                        
+                        # Permettre la mise à jour de l'interface tous les 5 blocs
+                        block_count += 1
+                        if block_count % 5 == 0:
+                            QApplication.processEvents()
+                    
+                    # Appliquer le nouveau document
+                    tab.text_input.setDocument(new_doc)
+                    
+                    # Restaurer la sélection
+                    if has_selection:
+                        cursor = tab.text_input.textCursor()
+                        cursor.setPosition(selection_start)
+                        cursor.setPosition(selection_end, QTextCursor.KeepAnchor)
+                        tab.text_input.setTextCursor(cursor)
+                    
+                    # Mettre à jour le braille
+                    selected_table = self.table_combo.currentText()
+                    if selected_table:
+                        formatted_braille = self.braille_engine.to_braille(formatted_text, 
+                                                                         self.available_tables[selected_table], 
+                                                                         self.line_width)
+                        tab.text_output.setPlainText(formatted_braille)
+                        tab.original_braille = formatted_braille
+                    tab.original_text = formatted_text
+
+                self.status_bar.showMessage(f"Largeur des lignes ajustée à {self.line_width} caractères", 3000)
+
+            except Exception as e:
+                logging.error(f"Erreur lors de l'ajustement de la largeur : {str(e)}")
+                self.status_bar.showMessage("Erreur lors de l'ajustement de la largeur", 3000)
+            finally:
+                # Réactiver les signaux
                 tab.text_input.blockSignals(False)
                 tab.text_output.blockSignals(False)
-
                 self.update_conversion()
-                self.status_bar.showMessage(
-                    f"Largeur des lignes ajustée à {self.line_width} caractères", 3000
-                )
-            else:
-                self.status_bar.showMessage("Aucun onglet actif pour ajuster la largeur", 3000)
-        else:
-            self.status_bar.showMessage("Ajustement de la largeur annulé", 3000)
 
     def adjust_lines_per_page(self):
         lines_per_page, ok = QInputDialog.getInt(
@@ -1114,18 +1393,51 @@ class BrailleUI(QMainWindow):
             tab.text_input.blockSignals(True)
             tab.text_output.blockSignals(True)
 
+            # Configurer la largeur de ligne pour le nouvel onglet
+            tab.text_input.setLineWrapMode(QTextEdit.WidgetWidth)
+            tab.text_input.setWordWrapMode(QTextOption.WordWrap)
+            tab.text_output.setLineWrapMode(QTextEdit.WidgetWidth)
+            tab.text_output.setWordWrapMode(QTextOption.WordWrap)
+
+            # Définir la largeur minimale
+            min_width = self.line_width * tab.text_input.fontMetrics().averageCharWidth()
+            tab.text_input.setMinimumWidth(int(min_width))
+            tab.text_output.setMinimumWidth(int(min_width))
+
             if file_path.endswith(".bfr"):
                 tab.text_output.setPlainText(filtered_text)
                 tab.original_braille = filtered_text
             else:
-                tab.text_input.setPlainText(filtered_text)
-                tab.original_text = filtered_text
-                if filtered_text.strip():
+                # Formater le texte en préservant les mots
+                words = filtered_text.split()
+                formatted_lines = []
+                current_line = []
+                current_length = 0
+                
+                for word in words:
+                    word_length = len(word)
+                    if current_length + word_length + len(current_line) <= self.line_width:
+                        current_line.append(word)
+                        current_length += word_length
+                    else:
+                        if current_line:
+                            formatted_lines.append(' '.join(current_line))
+                        current_line = [word]
+                        current_length = word_length
+                
+                if current_line:
+                    formatted_lines.append(' '.join(current_line))
+                
+                formatted_text = '\n'.join(formatted_lines)
+                tab.text_input.setPlainText(formatted_text)
+                tab.original_text = formatted_text
+
+                if formatted_text.strip():
                     selected_table = self.table_combo.currentText()
                     if selected_table:
                         try:
                             start_convert = time.time()
-                            thread = BrailleConversionThread(self.braille_engine, filtered_text,
+                            thread = BrailleConversionThread(self.braille_engine, formatted_text,
                                                             self.available_tables[selected_table], self.line_width)
                             thread.conversion_done.connect(lambda _, ft, fb: self.on_conversion_done(tab, ft, fb))
                             thread.start()
@@ -1642,7 +1954,15 @@ class BrailleUI(QMainWindow):
 
     def _restore_cursor_position(self, text_edit, position):
         cursor = text_edit.textCursor()
-        cursor.setPosition(min(position, len(text_edit.toPlainText())))
+        if cursor.hasSelection():
+            # Préserver la sélection
+            start = cursor.selectionStart()
+            end = cursor.selectionEnd()
+            cursor.setPosition(start)
+            cursor.setPosition(end, QTextCursor.KeepAnchor)
+        else:
+            # Restaurer uniquement la position du curseur
+            cursor.setPosition(min(position, len(text_edit.toPlainText())))
         text_edit.setTextCursor(cursor)
 
     def closeEvent(self, event):
@@ -1653,49 +1973,74 @@ class BrailleUI(QMainWindow):
         event.accept()
 
     def handle_resize(self):
-        tab = self.tab_widget.currentWidget()
-        if tab:
-            self.update_line_width()
-            self.update_conversion()
+        if not self.resize_timer.isActive():
+            tab = self.tab_widget.currentWidget()
+            if tab:
+                self.update_line_width()
+                self.update_conversion()
 
     def update_line_width(self):
         tab = self.tab_widget.currentWidget()
-        if tab:
-            font_metrics = QFontMetrics(tab.text_input.font())
-            char_width = font_metrics.averageCharWidth()
+        if not tab:
+            return
+
+        try:
+            # Calculer la nouvelle largeur
+            font_metrics_input = QFontMetrics(tab.text_input.font())
+            font_metrics_output = QFontMetrics(tab.text_output.font())
+            char_width_input = font_metrics_input.averageCharWidth()
+            char_width_output = font_metrics_output.averageCharWidth()
             scale = self.zoom_slider.value() / 100.0
-            available_width = tab.text_input.viewport().width()
-            new_line_width = max(self.min_line_width, int(available_width / (char_width * scale)))
-            if new_line_width != self.line_width:
-                self.line_width = new_line_width
+            
+            # Utiliser la plus petite largeur disponible pour les deux zones
+            available_width_input = tab.text_input.viewport().width()
+            available_width_output = tab.text_output.viewport().width()
+            available_width = min(available_width_input, available_width_output)
+            
+            # Calculer la largeur en utilisant la plus grande largeur de caractère
+            char_width = max(char_width_input, char_width_output)
+            new_width = max(self.min_line_width, int(available_width / (char_width * scale)))
+            
+            if new_width != self.line_width:
+                self.line_width = new_width
                 self.line_width_label.setText(f"Largeur de ligne : {self.line_width} caractères")
-                tab.text_input.setLineWrapMode(QTextEdit.FixedColumnWidth)
-                tab.text_input.setLineWrapColumnOrWidth(self.line_width)
-                tab.text_output.setLineWrapMode(QTextEdit.FixedColumnWidth)
-                tab.text_output.setLineWrapColumnOrWidth(self.line_width)
+                
+                # Appliquer la nouvelle largeur aux deux zones
+                self.apply_line_width_to_tab(tab)
+                
+                self.status_bar.showMessage(f"Largeur des lignes ajustée à {self.line_width} caractères", 3000)
 
-                current_text = tab.text_input.toPlainText()
-                current_braille = tab.text_output.toPlainText()
-
-                if current_text.strip():
-                    formatted_text = self.braille_engine.wrap_text_by_sentence(current_text, self.line_width)
-                    tab.text_input.setPlainText(formatted_text)
-                    tab.original_text = formatted_text
-                if current_braille.strip():
-                    formatted_braille = self.braille_engine.wrap_text_by_sentence(current_braille, self.line_width)
-                    tab.text_output.setPlainText(formatted_braille)
-                    tab.original_braille = formatted_braille
-
-                self.update_conversion()
+        except Exception as e:
+            logging.error(f"Erreur lors de la mise à jour de la largeur : {str(e)}")
+            self.status_bar.showMessage("Erreur lors de l'ajustement de la largeur", 3000)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self.resize_timer.start(200)
+        # Augmenter le délai pour éviter les mises à jour trop fréquentes
+        self.resize_timer.start(500)
 
     def update_usage_time(self):
         if self.logged_in_user:
             elapsed = self.usage_start_time.secsTo(QTime.currentTime())
             self.db.update_usage_time(self.logged_in_user.id, elapsed)
+
+    def mousePressEvent(self, event):
+        # Empêcher la propagation de l'événement si nécessaire
+        if event.button() == Qt.LeftButton:
+            super().mousePressEvent(event)
+        else:
+            event.ignore()
+
+    def mouseReleaseEvent(self, event):
+        # Empêcher la propagation de l'événement si nécessaire
+        if event.button() == Qt.LeftButton:
+            super().mouseReleaseEvent(event)
+        else:
+            event.ignore()
+
+    def mouseMoveEvent(self, event):
+        # Empêcher la propagation de l'événement si nécessaire
+        super().mouseMoveEvent(event)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

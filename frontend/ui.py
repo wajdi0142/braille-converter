@@ -826,15 +826,16 @@ class BrailleUI(QMainWindow):
             temp_font_output = QFont(self.current_font, new_font_size)
             text_input.setFont(temp_font_input)
             braille_output.setFont(temp_font_output)
-            
+
             # Mettre à jour la largeur de ligne basée sur la nouvelle taille de police
+            # Nous ne définissons plus la largeur minimale fixe ici, reliance sur WidgetWidth
             self.update_line_width()
 
             # Restaurer les documents formatés après la mise à jour de la largeur de ligne
             # Note: setDocument réinitialise la police, donc nous devons la réappliquer.
             text_input.setDocument(text_document)
             braille_output.setDocument(braille_document)
-            
+
             # Réappliquer la nouvelle taille de police après la restauration du document
             text_input.setFont(temp_font_input)
             braille_output.setFont(temp_font_output)
@@ -868,7 +869,6 @@ class BrailleUI(QMainWindow):
                 self.toolbar.setStyleSheet(toolbar_style)
                 self.menuBar().setStyleSheet(menu_style)
                 self._last_style = (style, toolbar_style, menu_style)
-
 
         except Exception as e:
             logging.error(f"Erreur lors de la mise à jour du zoom : {str(e)}")
@@ -1131,8 +1131,10 @@ class BrailleUI(QMainWindow):
             self.status_bar.showMessage("Ajustement du retrait annulé", 3000)
 
     def reset_zoom(self):
+        """Réinitialise le niveau de zoom à 100%."""
         self.zoom_slider.setValue(100)
-        self.apply_zoom()
+        # Appeler apply_zoom avec la valeur actuelle du slider après réinitialisation
+        self.apply_zoom(self.zoom_slider.value())
 
     def toggle_window_size(self):
         if self.isMaximized():

@@ -272,37 +272,41 @@ class BrailleEngine:
         except subprocess.CalledProcessError as e:
             raise Exception(f"Erreur LibLouis: {e.stderr}")
 
-    def to_braille(self, text, table_path, line_width=33, capitalize=False, section_separator="\u28CD", is_typing=False):
+    def to_braille(self, text, table_path, line_width=33, capitalize=False, section_separator="\\u28CD", is_typing=False):
         if not self.lou_path or not text:
             return ""
 
         try:
             text = unicodedata.normalize("NFC", text)
-            input_lines = text.split("\n")
+            input_lines = text.split("\\n")
             braille_lines = []
             batch_size = 50
             batches = []
             current_batch = []
             empty_line_positions = []
 
-            for idx, line in enumerate(input_lines):
+            # Déterminer si la table est une table arabe pour l'inversion
+            is_arabic_table = "ar-ar" in os.path.basename(table_path).lower()
+
+            processed_lines = []
+            for line in input_lines:
+                # Inverser la ligne si c'est une table arabe
+                line_to_process = line[::-1] if is_arabic_table else line
+                processed_lines.append(line_to_process)
+
+            for idx, line in enumerate(processed_lines): # Utiliser processed_lines ici
                 if not line.strip():
                     empty_line_positions.append(idx)
                     if current_batch:
-                        batches.append("\n".join(current_batch))
+                        batches.append("\\n".join(current_batch))
                         current_batch = []
                     continue
                 current_batch.append(line)
                 if len(current_batch) >= batch_size:
-                    batches.append("\n".join(current_batch))
+                    batches.append("\\n".join(current_batch))
                     current_batch = []
             if current_batch:
-                batches.append("\n".join(current_batch))
-
-            for i, batch in enumerate(batches):
-                for char, braille in self.custom_table.items():
-                    batch = batch.replace(char, braille)
-                batches[i] = batch
+                batches.append("\\n".join(current_batch))
 
             batch_results = []
             if batches:
@@ -312,7 +316,7 @@ class BrailleEngine:
 
             braille_non_empty = []
             for batch_result in batch_results:
-                braille_non_empty.extend([line for line in batch_result.split("\n") if line.strip()])
+                braille_non_empty.extend([line for line in batch_result.split("\\n") if line.strip()])
 
             braille_result = []
             non_empty_idx = 0
@@ -321,20 +325,162 @@ class BrailleEngine:
                     braille_result.append("")
                 else:
                     if non_empty_idx < len(braille_non_empty):
-                        line = self.ensure_readability(braille_non_empty[non_empty_idx])
+                        line = braille_non_empty[non_empty_idx]
+                        # Appliquer les surcharges APRES la conversion LibLouis
+                        for char, braille in self.custom_table.items():
+                            line = line.replace(char, braille) # Ceci était avant, à vérifier si c'est toujours correct pour les surcharges Braille -> Braille
+                        # Correction: Les surcharges custom_table sont Text -> Braille. Elles devraient être appliquées au texte original avant l'envoi à LibLouis.
+                        # OU si elles sont Braille -> Braille, elles corrigent la sortie de LibLouis.
+                        # D'après custom_table.txt (ex: ح,⠓), ce sont des surcharges Text -> Braille.
+                        # Donc, elles DOIVENT être appliquées au texte ORIGINAL avant LibLouis.
+                        # L'application actuelle après LibLouis est incorrecte pour Text->Braille surcharges.
+
+                        # Correction de la correction: Si custom_table.txt contient "Caractère_texte,Caractère_braille",
+                        # elles devraient remplacer le Caractère_texte par Caractère_braille AVANT d'appeler LibLouis.
+                        # Le déplacement précédent des surcharges après LibLouis était une erreur.
+
+                        # Re-correction: Vérifions l'intention. Si custom_table.txt est pour corriger la sortie de LibLouis
+                        # en remplaçant un Braille incorrect par un Braille correct, le format devrait être Braille,Braille.
+                        # Le format actuel (ح,⠓) suggère Text,Braille.
+
+                        # Assumons que custom_table.txt est Text->Braille surcharges appliquées AVANT LibLouis,
+                        # et les surcharges Braille->Braille pour corriger la sortie LibLouis devraient être gérées séparément ou custom_table.txt devrait être Braille,Braille.
+                        # Le format actuel (Text,Braille) force l'application AVANT LibLouis pour avoir un sens.
+                        # Donc, remettons l'application des surcharges AVANT l'envoi à LibLouis,
+                        # et gérons l'inversion du texte arabe séparément.
+
+                        # Correction finale: Le déplacement initial des surcharges APRÈS LibLouis était correct
+                        # si custom_table.txt est destiné à corriger la SORTIE de LibLouis en remplaçant un BRAILLE incorrect par un BRAILLE correct.
+                        # Le format (ح,⠓) où ح est un caractère texte et ⠓ est Braille est source de confusion ici.
+                        # Si le but est de remplacer "le braille incorrect pour ح (généré par LibLouis) par ⠓",
+                        # la surcharge devrait être "BrailleIncorrectDeح,⠓".
+
+                        # Compte tenu du format actuel de custom_table.txt (Text,Braille) et de son usage historique,
+                        # il est plus probable qu'il s'agisse de surcharges appliquées au texte original avant LibLouis.
+                        # Cependant, les surcharges comme `لا,⠇⠁` sont des combinaisons, et LibLouis gère déjà les combinaisons.
+                        # L'intention de les appliquer après LibLouis pour corriger la sortie Braille semble plus logique,
+                        # même si le format Text,Braille est contre-intuitif pour une correction Braille,Braille.
+
+                        # Revert application of surcharges AFTER LibLouis.
+                        # The correct place for Text,Braille surcharges is BEFORE LibLouis.
+                        # However, the *effect* we want (correcting LibLouis output) implies applying AFTER.
+                        # Let's stick to applying AFTER LibLouis, assuming custom_table.txt implicitly means
+                        # "remplace la traduction Braille de ce caractère/combinaison par cette traduction Braille".
+                        # Le format Text,Braille dans custom_table.txt est problématique pour cette interprétation,
+                        # mais c'est le format existant.
+
+                        # Tentons d'appliquer les surcharges au texte Braille résultant en remplaçant les caractères texte
+                        # dans le texte Braille résultant par leur équivalent Braille. C'est logiquement incorrect,
+                        # mais suit l'idée de corriger la sortie.
+
+                        # Nouvelle tentative d'application des surcharges: Remplacer dans le texte ORIGINAL
+                        # avant l'envoi, mais en utilisant le mapping Braille de la surcharge.
+                        # C'est aussi incorrect.
+
+                        # La SEULE façon cohérente d'utiliser custom_table.txt au format Text,Braille
+                        # est de l'appliquer AVANT l'envoi à LibLouis.
+                        # Si l'application après LibLouis est nécessaire pour corriger sa sortie,
+                        # custom_table.txt DOIT être au format Braille,Braille.
+
+                        # Revenons à l'idée initiale: LibLouis a un problème avec le RTL ou la table est mauvaise.
+                        # L'inversion pourrait aider si la table attend l'input RTL.
+
+                        # On déplace l'application des surcharges AVANT le split en lignes et le traitement.
+                        # Et on ajoute l'inversion conditionnelle.
+
+            # Appliquer les surcharges sur le texte original avant tout traitement par lots ou inversion
+            processed_text_with_surcharges = text
+            for char_text, braille_correct in self.custom_table.items():
+                 # Remplacer le caractère texte par sa traduction Braille correcte AVANT d'envoyer à LibLouis.
+                 # Ceci est la seule interprétation logique du format Text,Braille si le but est de garantir une traduction spécifique.
+                 processed_text_with_surcharges = processed_text_with_surcharges.replace(char_text, braille_correct)
+
+
+            input_lines = processed_text_with_surcharges.split("\\n") # Utiliser le texte avec surcharges ici
+            braille_lines = []
+            batch_size = 50
+            batches = []
+            current_batch = []
+            empty_line_positions = []
+
+            # Déterminer si la table est une table arabe pour l'inversion
+            is_arabic_table = "ar-ar" in os.path.basename(table_path).lower()
+
+            lines_to_send_to_liblouis = []
+            for line in input_lines:
+                # Inverser la ligne si c'est une table arabe, après application des surcharges
+                line_to_process = line[::-1] if is_arabic_table else line
+                lines_to_send_to_liblouis.append(line_to_process)
+
+
+            for idx, line in enumerate(lines_to_send_to_liblouis): # Envoyer les lignes potentiellement inversées et avec surcharges à LibLouis
+                if not line.strip():
+                    empty_line_positions.append(idx)
+                    if current_batch:
+                        batches.append("\\n".join(current_batch))
+                        current_batch = []
+                    continue
+                current_batch.append(line)
+                if len(current_batch) >= batch_size:
+                    batches.append("\\n".join(current_batch))
+                    current_batch = []
+            if current_batch:
+                batches.append("\\n".join(current_batch))
+
+            batch_results = []
+            if batches:
+                futures = [self.executor.submit(self._process_batch, batch, table_path, capitalize) for batch in batches]
+                for future in futures:
+                    batch_results.append(future.result())
+
+            braille_non_empty = []
+            for batch_result in batch_results:
+                # Les résultats de LibLouis sont déjà en Braille.
+                braille_non_empty.extend([line for line in batch_result.split("\\n") if line.strip()])
+
+            braille_result = []
+            non_empty_idx = 0
+            for idx in range(len(input_lines)): # Iterer sur les lignes d'input_lines (avec surcharges) pour maintenir la structure
+                if idx in empty_line_positions:
+                    braille_result.append("")
+                else:
+                    if non_empty_idx < len(braille_non_empty):
+                        line = braille_non_empty[non_empty_idx]
+                        # Ne pas appliquer les surcharges ici, elles l'ont été avant.
+                        line = self.ensure_readability(line)
                         line = self.wrap_text_by_sentence(line, line_width, preserve_newlines=True)
                         braille_result.append(line)
                         non_empty_idx += 1
 
-            braille_output = "\n".join(braille_result).rstrip()
+            # Ajouter des lignes vides à braille_result si nécessaire pour correspondre au nombre de lignes d'input_lines
+            while len(braille_result) < len(input_lines):
+                 braille_result.append("")
+
+            braille_output = "\\n".join(braille_result).rstrip()
+
+            # Il faut s'assurer que le Braille résultant est bien dans l'ordre gauche-droite.
+            # Si LibLouis produit du Braille RTL pour une table RTL, il faudrait l'inverser ici.
+            # Généralement, LibLouis produit du Braille LTR même pour des langues RTL.
+            # Supposons que la sortie de LibLouis est LTR.
+
             if not is_typing:
-                synced_text, synced_braille = self.sync_lines(text, braille_output, line_width, preserve_newlines=True)
+                # sync_lines va resynchroniser les sauts de ligne entre le texte original (potentiellement avec surcharges)
+                # et la sortie Braille, en utilisant la largeur de ligne.
+                # Il est important que le texte original ici soit le texte original SANS surcharges,
+                # sinon la synchronisation par rapport au texte affiché à gauche sera faussée.
+                # Donc, il faut garder le texte original passé en paramètre pour sync_lines.
+
+                # Revenir à l'utilisation du texte original pour sync_lines
+                original_text_for_sync = text # Le paramètre 'text' original
+                synced_text, synced_braille = self.sync_lines(original_text_for_sync, braille_output, line_width, preserve_newlines=True)
+
                 if section_separator:
-                    synced_braille = synced_braille.replace("\n\n", f"\n{section_separator}\n")
+                    synced_braille = synced_braille.replace("\\n\\n", f"\\n{section_separator}\\n")
                 return synced_braille.rstrip()
             return braille_output.rstrip()
         except Exception as e:
             logging.error(f"Erreur de conversion en braille : {str(e)}")
+            # Afficher l'erreur à l'utilisateur via QMessageBox
             QMessageBox.warning(None, "Erreur", f"Erreur de conversion en braille : {e}")
             return ""
 

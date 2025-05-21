@@ -325,7 +325,7 @@ class FileHandler:
             text_style = ParagraphStyle(
                 name="Text",
                 fontName=text_font,
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,  # Plus d'espace entre les paragraphes
                 leading=14,  # Meilleur espacement des lignes
                 allowWidows=1,
@@ -335,7 +335,7 @@ class FileHandler:
             text_style_bold = ParagraphStyle(
                 name="TextBold",
                 fontName=f"{text_font}-Bold",
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,
                 leading=14,
                 allowWidows=1,
@@ -345,7 +345,7 @@ class FileHandler:
             text_style_italic = ParagraphStyle(
                 name="TextItalic",
                 fontName=f"{text_font}-Italic",
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,
                 leading=14,
                 allowWidows=1,
@@ -355,7 +355,7 @@ class FileHandler:
             text_style_underline = ParagraphStyle(
                 name="TextUnderline",
                 fontName=text_font,
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,
                 leading=14,
                 allowWidows=1,
@@ -365,7 +365,7 @@ class FileHandler:
             text_style_bold_italic = ParagraphStyle(
                 name="TextBoldItalic",
                 fontName=f"{text_font}-BoldItalic" if f"{text_font}-BoldItalic" in pdfmetrics.getRegisteredFontNames() else f"{text_font}-Italic",
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,
                 leading=14,
                 allowWidows=1,
@@ -375,7 +375,7 @@ class FileHandler:
             text_style_bold_underline = ParagraphStyle(
                 name="TextBoldUnderline",
                 fontName=f"{text_font}-Bold",
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,
                 leading=14,
                 allowWidows=1,
@@ -385,7 +385,7 @@ class FileHandler:
             text_style_italic_underline = ParagraphStyle(
                 name="TextItalicUnderline",
                 fontName=f"{text_font}-Italic",
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,
                 leading=14,
                 allowWidows=1,
@@ -395,7 +395,7 @@ class FileHandler:
             text_style_bold_italic_underline = ParagraphStyle(
                 name="TextBoldItalicUnderline",
                 fontName=f"{text_font}-BoldItalic" if f"{text_font}-BoldItalic" in pdfmetrics.getRegisteredFontNames() else f"{text_font}-Italic",
-                fontSize=12,
+                fontSize=self.parent.base_font_size if self.parent else 12,
                 spaceAfter=8,
                 leading=14,
                 allowWidows=1,
@@ -405,7 +405,7 @@ class FileHandler:
             braille_style = ParagraphStyle(
                 name="Braille",
                 fontName=braille_font,
-                fontSize=14,  # Taille plus grande pour le braille
+                fontSize=self.parent.base_font_size if self.parent else 14,  # Utiliser la taille de police de l'interface pour le braille
                 spaceAfter=8,
                 leading=16,  # Plus d'espacement pour le braille
                 allowWidows=1,
@@ -522,11 +522,27 @@ class FileHandler:
                                         logging.debug(f"Paragraph part: {full_text[:100]}... with style {style_to_use.name}")
                                         wrapped_text = wrap_text(full_text, line_width, allow_break=len(full_text) > line_width)
                                         
+                                        # Obtenir la taille de police du premier fragment du paragraphe pour ce style
+                                        # Note : Ceci est une simplification, idéalement il faudrait gérer des tailles mixtes
+                                        # au sein d'un même paragraphe si nécessaire, mais reportlab rend cela complexe.
+                                        # Pour l'instant, on prend la taille du début du fragment.
+                                        first_fragment_char_format = block.begin().fragment().charFormat()
+                                        fragment_font_size = first_fragment_char_format.fontPointSize()
+                                        
                                         # Appliquer le soulignement en utilisant des balises HTML
                                         if "u" in current_style:
                                             wrapped_text = f"<u>{wrapped_text}</u>"
                                         
                                         paragraph_html = f"<para>{wrapped_text}</para>" if wrapped_text else "<para> </para>"
+                                        
+                                        # Ajuster la taille de police du style de paragraphe si une taille spécifique est définie
+                                        if fragment_font_size > 0:
+                                             style_to_use = ParagraphStyle(
+                                                name=style_to_use.name, # Conserver le nom
+                                                parent=style_to_use, # Hériter des autres propriétés
+                                                fontSize=fragment_font_size # Appliquer la taille spécifique
+                                            )
+                                            
                                         paragraph_parts.append((paragraph_html, style_to_use))
                                         current_text = []
                                 current_style = new_style[:]
@@ -567,11 +583,25 @@ class FileHandler:
                             logging.debug(f"Final paragraph part: {full_text[:100]}... with style {style_to_use.name}")
                             wrapped_text = wrap_text(full_text, line_width, allow_break=len(full_text) > line_width)
                             
+                            # Obtenir la taille de police du dernier fragment du paragraphe pour ce style
+                            # Note : Ceci est une simplification.
+                            last_fragment_char_format = it.fragment().charFormat()
+                            fragment_font_size = last_fragment_char_format.fontPointSize()
+                            
                             # Appliquer le soulignement en utilisant des balises HTML
                             if "u" in current_style:
                                 wrapped_text = f"<u>{wrapped_text}</u>"
                             
                             paragraph_html = f"<para>{wrapped_text}</para>" if wrapped_text else "<para> </para>"
+                            
+                            # Ajuster la taille de police du style de paragraphe si une taille spécifique est définie
+                            if fragment_font_size > 0:
+                                 style_to_use = ParagraphStyle(
+                                    name=style_to_use.name, # Conserver le nom
+                                    parent=style_to_use, # Hériter des autres propriétés
+                                    fontSize=fragment_font_size # Appliquer la taille spécifique
+                                )
+                                
                             paragraph_parts.append((paragraph_html, style_to_use))
 
                         # Add all paragraph parts to the story
@@ -648,16 +678,46 @@ class FileHandler:
             doc = Document()
             from docx.oxml.ns import qn
             doc.add_heading(doc_name, level=0)
+            
+            # Configurer les marges du document
             sections = doc.sections
             for section in sections:
                 section.left_margin = Inches(10 / 25.4)
                 section.right_margin = Inches(10 / 25.4)
                 section.top_margin = Inches(10 / 25.4)
                 section.bottom_margin = Inches(10 / 25.4)
+            
+            # Récupérer les paramètres de mise en page
             lines_per_page = self.parent.lines_per_page if self.parent else 25
             line_width = self.parent.line_width if self.parent else 80
             indent_mm = self.parent.indent if self.parent else 0
             line_spacing = self.parent.line_spacing if self.parent else 1.0
+            
+            # Fonction pour formater le texte selon la largeur de ligne
+            def format_text_to_width(text, width):
+                if not text or width < 1:
+                    return text
+                words = text.split()
+                lines = []
+                current_line = []
+                current_length = 0
+                
+                for word in words:
+                    word_length = len(word)
+                    if current_length + word_length + len(current_line) <= width:
+                        current_line.append(word)
+                        current_length += word_length
+                    else:
+                        if current_line:
+                            lines.append(' '.join(current_line))
+                        current_line = [word]
+                        current_length = word_length
+                
+                if current_line:
+                    lines.append(' '.join(current_line))
+                
+                return '\n'.join(lines)
+
             if save_type in ["Texte + Braille", "Texte uniquement"]:
                 block = text_document.begin()
                 block_count = 0
@@ -673,48 +733,74 @@ class FileHandler:
                             p.alignment = 3  # JUSTIFY
                         else:
                             p.alignment = 0  # LEFT
+                        
+                        # Appliquer le retrait et l'espacement des lignes
                         p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
                         p.paragraph_format.line_spacing = line_spacing
+                        
                         it = block.begin()
                         while not it.atEnd():
                             fragment = it.fragment()
                             if fragment.isValid():
                                 char_format = fragment.charFormat()
-                                run = p.add_run(fragment.text())
-                                run.font.name = font_name
-                                run.font.size = Pt(12)
+                                text = fragment.text()
+                                
+                                # Formater le texte selon la largeur de ligne
+                                formatted_text = format_text_to_width(text, line_width)
+                                
+                                run = p.add_run(formatted_text)
+                                run.font.name = self.parent.current_font if self.parent else font_name
+                                # Utiliser la taille de police spécifique du fragment, sinon la taille de base de l'interface
+                                fragment_font_size = char_format.fontPointSize()
+                                if fragment_font_size > 0:
+                                    run.font.size = Pt(fragment_font_size)
+                                else:
+                                    run.font.size = Pt(self.parent.base_font_size if self.parent else 12)
                                 run.bold = char_format.fontWeight() == QFont.Bold
                                 run.italic = char_format.fontItalic()
                                 run.underline = char_format.fontUnderline()
                             it += 1
+                    
                     block = block.next()
                     block_count += 1
                     if block_count % lines_per_page == 0:
                         doc.add_paragraph("--- Page Break ---")
+
             if save_type in ["Texte + Braille", "Braille uniquement"]:
                 if save_type == "Texte + Braille":
                     doc.add_paragraph("=== Section Braille ===")
+                
                 braille_lines = braille_text.split('\n')
                 current_page_lines = []
                 line_count = 0
+                
                 for line in braille_lines:
                     if line_count >= lines_per_page:
                         doc.add_paragraph("--- Page Break ---")
                         for saved_line in current_page_lines:
-                            p = doc.add_paragraph(saved_line)
+                            p = doc.add_paragraph()
+                            # Formater la ligne braille selon la largeur
+                            formatted_line = format_text_to_width(saved_line, line_width)
+                            p.add_run(formatted_line).font.name = font_name
                             p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
                             p.paragraph_format.line_spacing = line_spacing
                         current_page_lines = []
                         line_count = 0
+                    
                     if line.strip():
                         current_page_lines.append(line)
                         line_count += 1
+                
                 if current_page_lines:
                     doc.add_paragraph("--- Page Break ---")
                     for saved_line in current_page_lines:
-                        p = doc.add_paragraph(saved_line)
+                        p = doc.add_paragraph()
+                        # Formater la ligne braille selon la largeur
+                        formatted_line = format_text_to_width(saved_line, line_width)
+                        p.add_run(formatted_line).font.name = font_name
                         p.paragraph_format.left_indent = Inches(indent_mm / 25.4)
                         p.paragraph_format.line_spacing = line_spacing
+
             doc.save(file_path)
             print(f"Document DOCX exporté avec succès : {file_path}")
         except Exception as e:

@@ -176,7 +176,10 @@ class BrailleUI(QMainWindow):
         self.init_ui()
         
         # Calculer la largeur initiale après l'initialisation de l'interface
-        QTimer.singleShot(100, self.calculate_initial_line_width)
+        # QTimer.singleShot(100, self.calculate_initial_line_width)
+        
+        # Appliquer la largeur de ligne initiale par défaut (33)
+        QTimer.singleShot(150, lambda: self.apply_line_width_to_tab(self.tab_widget.currentWidget()))
 
     def calculate_initial_line_width(self):
         """Calcule la largeur de ligne initiale en fonction de la taille de la fenêtre."""
@@ -874,18 +877,30 @@ class BrailleUI(QMainWindow):
         if not tab:
             return
         cursor = tab.text_input.textCursor()
+        # Vérifier s'il y a une sélection
         if not cursor.hasSelection():
-            cursor.select(QTextCursor.Document)
+            # Si aucune sélection, ne rien faire pour éviter d'appliquer à tout le document
+            # On peut potentiellement mettre à jour la police pour le curseur actuel si l'utilisateur commence à taper
+            # mais pour l'instant, on ne modifie que la sélection existante.
+            logging.debug("adjust_font_size: No selection, not applying font size.")
+            return
+        
+        # Si une sélection existe, appliquer le formatage uniquement à la sélection
         fmt = QTextCharFormat()
         fmt.setFontPointSize(font_size)
+        # Optionnel: Préserver la famille de police existante si ce n'est pas la police Braille par défaut
+        # if cursor.charFormat().fontFamily() != BRAILLE_FONT_NAME:
+        #    fmt.setFontFamily(cursor.charFormat().fontFamily())
+        # else:
         fmt.setFontFamily(self.current_font)
+            
         cursor.mergeCharFormat(fmt)
-        tab.text_input.setFont(QFont(self.current_font, font_size))
-        tab.text_output.setFont(QFont(self.current_font, font_size))
+        # tab.text_input.setFont(QFont(self.current_font, font_size)) # Ne pas appliquer à tout le widget
+        # tab.text_output.setFont(QFont(self.current_font, font_size)) # Ne pas appliquer à tout le widget
         self.sync_text_areas(tab)
         self.font_size_spin.setValue(font_size)
-        self.update_line_width()
-        self.update_conversion()
+        # self.update_line_width() # L'ajustement de la largeur dépend de la police globale, pas de la sélection.
+        # self.update_conversion() # La conversion ne dépend pas de la taille de la police, mais du texte.
 
     def align_text(self, alignment):
         tab = self.tab_widget.currentWidget()
@@ -1243,6 +1258,10 @@ class BrailleUI(QMainWindow):
         selected_table = self.table_combo.currentText()
         welcome_text = welcome_texts.get(selected_table, "Welcome!")
         tab.text_input.setPlainText(welcome_text)
+        
+        # Appliquer la largeur de ligne par défaut (33) au nouvel onglet
+        self.apply_line_width_to_tab(tab)
+        
         tab.connect_text_changed()
         self.sync_text_areas(tab)
         self.update_conversion()
@@ -1309,6 +1328,9 @@ class BrailleUI(QMainWindow):
             tab = BrailleTab(self, file_path=file_path, save_type=save_type)
             tab.text_input.blockSignals(True)
             tab.text_output.blockSignals(True)
+
+            # Appliquer la largeur de ligne par défaut (33) à l'onglet importé
+            self.apply_line_width_to_tab(tab)
 
             # Configurer la largeur de ligne pour le nouvel onglet
             tab.text_input.setLineWrapMode(QTextEdit.WidgetWidth)

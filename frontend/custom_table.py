@@ -51,14 +51,19 @@ class CustomBrailleTableWidget(QDialog):
         self.load_custom_table()
 
     def load_custom_table(self):
-        if os.path.exists("custom_table.txt"):
-            with open("custom_table.txt", "r", encoding="utf-8") as f:
-                for line in f:
-                    char, braille = line.strip().split(",")
-                    row = self.table.rowCount()
-                    self.table.insertRow(row)
-                    self.table.setItem(row, 0, QTableWidgetItem(char))
-                    self.table.setItem(row, 1, QTableWidgetItem(braille))
+        # Lire la table personnalisée chargée par BrailleEngine
+        custom_mapping = self.braille_engine.custom_table
+        
+        # Effacer le contenu actuel de la table de l'interface avant de la remplir
+        self.table.setRowCount(0)
+
+        # Remplir la table de l'interface avec les données chargées
+        # custom_mapping est un dictionnaire {caractère: braille}
+        for char, braille in custom_mapping.items():
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            self.table.setItem(row, 0, QTableWidgetItem(char))
+            self.table.setItem(row, 1, QTableWidgetItem(braille))
 
     def add_character(self):
         char, ok1 = QInputDialog.getText(self, "Nouveau caractère", "Entrez le caractère :")

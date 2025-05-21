@@ -58,6 +58,9 @@ class BrailleEngine:
         if os.path.exists(custom_file):
             with open(custom_file, "r", encoding="utf-8") as f:
                 for line in f:
+                    # Ignorer les lignes vides ou celles qui ne contiennent pas de virgule
+                    if "," not in line:
+                        continue
                     try:
                         char, braille = line.strip().split(",", 1)
                         if len(char) >= 1 and all('\u2800' <= c <= '\u28FF' for c in braille):

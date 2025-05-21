@@ -107,4 +107,49 @@ def set_dark_mode(app: QApplication):
             border-top: 1px solid #555;
             color: #ffffff;
         }
+        
+        /* Styles pour les menus en mode sombre */
+        QMenu {
+            background-color: #2b2b2b;
+            border: 1px solid #555;
+            color: #ffffff;
+        }
+
+        QMenu::item {
+            padding: 5px 10px;
+            background-color: transparent; /* Rendre le fond transparent par défaut */
+            color: #ffffff;
+        }
+
+        QMenu::item:selected { /* Style pour l'élément de menu sélectionné */
+            background-color: #5a5a5a; /* Une couleur de fond légèrement plus claire */
+            color: #ffffff; /* Assurer que le texte reste blanc */
+        }
+
+        QMenu::separator {
+            height: 1px;
+            background: #555;
+            margin: 5px 10px;
+        }
+        
+        /* Styles pour la barre de menu principale en mode sombre */
+        QMenuBar {
+            background-color: #3c3c3c; /* Couleur de fond similaire à la barre d'outils */
+            color: #ffffff;
+            spacing: 5px; /* Espacement entre les éléments du menu */
+        }
+
+        QMenuBar::item {
+            padding: 5px 10px; /* Padding autour du texte de l'élément de menu */
+            background: transparent; /* Fond transparent par défaut */
+            color: #ffffff;
+        }
+
+        QMenuBar::item:selected { /* Au survol ou sélectionné */
+            background: #5a5a5a; /* Couleur de fond au survol/sélection */
+        }
+
+        QMenuBar::item:pressed { /* Lorsqu'on clique */
+            background: #6a6a6a; /* Couleur de fond lorsqu'il est pressé */
+        }
     """)

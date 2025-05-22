@@ -1,6 +1,42 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QTextEdit, QScrollArea
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QTextEdit, QScrollArea, QProgressDialog
+from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
+from PyQt5.QtGui import QFont, QTextOption
+import logging
+
+class ConversionWorker(QThread):
+    """Thread de travail pour la conversion asynchrone."""
+    conversion_done = pyqtSignal(str, str)
+    progress_updated = pyqtSignal(int)
+
+    def __init__(self, text, braille_engine, table, line_width, chunk_size=1000):
+        super().__init__()
+        self.text = text
+        self.braille_engine = braille_engine
+        self.table = table
+        self.line_width = line_width
+        self.chunk_size = chunk_size
+
+    def run(self):
+        try:
+            total_chunks = (len(self.text) + self.chunk_size - 1) // self.chunk_size
+            result_text = []
+            result_braille = []
+
+            for i in range(0, len(self.text), self.chunk_size):
+                chunk = self.text[i:i + self.chunk_size]
+                formatted_chunk = self.braille_engine.wrap_text_by_sentence(chunk, self.line_width)
+                braille_chunk = self.braille_engine.to_braille(formatted_chunk, self.table, self.line_width)
+                
+                result_text.append(formatted_chunk)
+                result_braille.append(braille_chunk)
+                
+                progress = int((i + len(chunk)) / len(self.text) * 100)
+                self.progress_updated.emit(progress)
+
+            self.conversion_done.emit('\n'.join(result_text), '\n'.join(result_braille))
+        except Exception as e:
+            logging.error(f"Erreur dans ConversionWorker: {str(e)}")
+            self.conversion_done.emit("", "")
 
 class BrailleTab(QWidget):
     """Onglet pour l'édition de texte et braille avec support multi-pages et conversion asynchrone."""
@@ -25,7 +61,26 @@ class BrailleTab(QWidget):
         self.pages_input = []
         self.pages_output = []
         self._conversion_thread = None
+        self.pending_changes = []
+        self.last_modified_lines = set()
+        self._style_timer = QTimer()
+        self._style_timer.setSingleShot(True)
+        self._style_timer.timeout.connect(self.reset_borders)
+        self._conversion_cache = {}  # Cache pour les conversions
+        self._line_cache = {}  # Cache pour les lignes individuelles
+        self._chunk_size = 1000  # Taille des morceaux pour le traitement
+        self._max_cache_size = 1000  # Taille maximale du cache
         self.init_ui()
+
+    @property
+    def text_input(self):
+        """Propriété pour accéder à la première page d'entrée."""
+        return self.pages_input[0] if self.pages_input else None
+
+    @property
+    def text_output(self):
+        """Propriété pour accéder à la première page de sortie."""
+        return self.pages_output[0] if self.pages_output else None
 
     def init_ui(self):
         """Initialise l'interface de l'onglet avec des zones de texte défilantes."""
@@ -76,28 +131,128 @@ class BrailleTab(QWidget):
         self.input_layout.addWidget(page_input)
         self.output_layout.addWidget(page_output)
 
+    def load_large_file(self, file_path):
+        """Charge un gros fichier de manière progressive."""
+        try:
+            progress = QProgressDialog("Chargement du fichier...", "Annuler", 0, 100, self)
+            progress.setWindowModality(Qt.WindowModal)
+            progress.show()
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Diviser le contenu en morceaux
+            chunks = [content[i:i + self._chunk_size] for i in range(0, len(content), self._chunk_size)]
+            total_chunks = len(chunks)
+
+            for i, chunk in enumerate(chunks):
+                if progress.wasCanceled():
+                    return
+
+                # Mettre à jour la progression
+                progress.setValue(int((i + 1) / total_chunks * 100))
+                progress.setLabelText(f"Chargement du fichier... {i + 1}/{total_chunks} morceaux")
+
+                # Ajouter le morceau au texte
+                if i == 0:
+                    self.text_input.setPlainText(chunk)
+                else:
+                    self.text_input.append(chunk)
+
+                # Traiter le morceau
+                self.process_chunk(chunk, i)
+
+            progress.setValue(100)
+            self.update_conversion()
+
+        except Exception as e:
+            logging.error(f"Erreur lors du chargement du fichier: {str(e)}")
+            raise
+
+    def process_chunk(self, chunk, chunk_index):
+        """Traite un morceau de texte et met à jour le cache."""
+        try:
+            # Vérifier si le morceau est déjà dans le cache
+            cache_key = f"{chunk}_{self.parent.table_combo.currentText()}_{self.parent.line_width}"
+            if cache_key in self._conversion_cache:
+                return self._conversion_cache[cache_key]
+
+            # Convertir le morceau
+            formatted_chunk = self.parent.braille_engine.wrap_text_by_sentence(chunk, self.parent.line_width)
+            braille_chunk = self.parent.braille_engine.to_braille(
+                formatted_chunk,
+                self.parent.available_tables[self.parent.table_combo.currentText()],
+                self.parent.line_width
+            )
+
+            # Gérer la taille du cache
+            if len(self._conversion_cache) >= self._max_cache_size:
+                # Supprimer les entrées les plus anciennes
+                oldest_key = next(iter(self._conversion_cache))
+                del self._conversion_cache[oldest_key]
+
+            # Mettre en cache le résultat
+            self._conversion_cache[cache_key] = (formatted_chunk, braille_chunk)
+            return formatted_chunk, braille_chunk
+
+        except Exception as e:
+            logging.error(f"Erreur lors du traitement du morceau {chunk_index}: {str(e)}")
+            return "", ""
+
+    def process_line(self, line, line_index):
+        """Traite une ligne individuelle avec mise en cache."""
+        try:
+            # Vérifier si la ligne est déjà dans le cache
+            cache_key = f"{line}_{self.parent.table_combo.currentText()}_{self.parent.line_width}"
+            if cache_key in self._line_cache:
+                return self._line_cache[cache_key]
+
+            # Convertir la ligne
+            formatted_line = self.parent.braille_engine.wrap_text_by_sentence(line, self.parent.line_width)
+            braille_line = self.parent.braille_engine.to_braille(
+                formatted_line,
+                self.parent.available_tables[self.parent.table_combo.currentText()],
+                self.parent.line_width
+            )
+
+            # Gérer la taille du cache
+            if len(self._line_cache) >= self._max_cache_size:
+                oldest_key = next(iter(self._line_cache))
+                del self._line_cache[oldest_key]
+
+            # Mettre en cache le résultat
+            self._line_cache[cache_key] = (formatted_line, braille_line)
+            return formatted_line, braille_line
+
+        except Exception as e:
+            logging.error(f"Erreur lors du traitement de la ligne {line_index}: {str(e)}")
+            return "", ""
+
     def on_text_changed(self):
-        """
-        Gère les changements de texte avec indicateurs visuels et planification de conversion.
-        Déclenche une conversion après un délai si nécessaire.
-        """
-        if not self.is_updating and not self.parent.is_typing:
+        """Gère les changements de texte avec indicateurs visuels et planification de conversion."""
+        if self.is_updating or self.parent.is_typing:
+            return
+
+        # Mettre à jour les styles visuels
+        if not self._style_timer.isActive():
             for page_input in self.pages_input:
                 page_input.setStyleSheet("QTextEdit { border: 2px solid blue; }")
             for page_output in self.pages_output:
                 page_output.setStyleSheet("QTextEdit { border: 2px solid orange; }")
-            QTimer.singleShot(1000, self.reset_borders)
-            if not (self.is_imported and not self.parent.auto_update_enabled):
-                # Planifier la conversion en utilisant le conversion_timer de BrailleUI
-                if not self.parent.conversion_timer.isActive():
-                    self.parent.conversion_timer.start(300)  # 300ms de délai pour éviter des appels trop fréquents
+            self._style_timer.start(1000)
+
+        # Planifier la conversion si nécessaire
+        if not (self.is_imported and not self.parent.auto_update_enabled):
+            if not self.parent.conversion_timer.isActive():
+                self.parent.conversion_timer.start(50)
 
     def reset_borders(self):
         """Réinitialise les bordures des zones de texte à leur état par défaut."""
-        for page_input in self.pages_input:
-            page_input.setStyleSheet("QTextEdit { border: 1px solid gray; }")
-        for page_output in self.pages_output:
-            page_output.setStyleSheet("QTextEdit { border: 1px solid gray; }")
+        if not self.is_updating:
+            for page_input in self.pages_input:
+                page_input.setStyleSheet("QTextEdit { border: 1px solid gray; }")
+            for page_output in self.pages_output:
+                page_output.setStyleSheet("QTextEdit { border: 1px solid gray; }")
 
     def set_page_text(self, page_index, text):
         """
@@ -147,3 +302,130 @@ class BrailleTab(QWidget):
             page_output.setFont(font)
             page_input.setLineWrapColumnOrWidth(self.parent.line_width)
             page_output.setLineWrapColumnOrWidth(self.parent.line_width)
+
+    def connect_text_changed(self):
+        """Connecte les signaux de changement de texte aux slots appropriés."""
+        for page in self.pages_input + self.pages_output:
+            page.textChanged.connect(self.parent.on_text_changed)
+
+    def queue_manual_edit(self, cursor_pos, new_text):
+        """Ajoute une modification manuelle à la file d'attente."""
+        self.pending_changes.append((cursor_pos, new_text))
+
+    def process_pending_changes(self):
+        """Traite les modifications manuelles en attente pour la première page d'entrée."""
+        if not self.pending_changes or not self.text_input:
+            return
+        self.is_updating = True
+        cursor = self.text_input.textCursor()
+        for cursor_pos, new_text in self.pending_changes:
+            cursor.setPosition(cursor_pos)
+            cursor.insertText(new_text)
+        self.text_input.setTextCursor(cursor)
+        self.pending_changes.clear()
+        self.is_updating = False
+
+    def update_conversion(self):
+        """Met à jour la conversion avec gestion optimisée des modifications."""
+        if self.is_updating:
+            return
+
+        self.is_updating = True
+        try:
+            text = self.get_all_text()
+            if not text:
+                return
+
+            # Vérifier si le texte complet est dans le cache
+            cache_key = f"{text}_{self.parent.table_combo.currentText()}_{self.parent.line_width}"
+            if cache_key in self._conversion_cache:
+                formatted_text, formatted_braille = self._conversion_cache[cache_key]
+                self.text_output.setPlainText(formatted_braille)
+                return
+
+            # Traiter les modifications ligne par ligne
+            old_lines = self.original_text.split('\n')
+            new_lines = text.split('\n')
+            modified_lines = set()
+
+            # Identifier les lignes modifiées
+            for i in range(min(len(old_lines), len(new_lines))):
+                if old_lines[i] != new_lines[i]:
+                    modified_lines.add(i)
+            for i in range(len(old_lines), len(new_lines)):
+                modified_lines.add(i)
+
+            if len(modified_lines) < len(new_lines) * 0.3:  # Si moins de 30% des lignes sont modifiées
+                # Traiter uniquement les lignes modifiées
+                braille_lines = self.original_braille.split('\n') if self.original_braille else [''] * len(old_lines)
+                for line_idx in modified_lines:
+                    if line_idx < len(new_lines):
+                        line = new_lines[line_idx]
+                        if line.strip():
+                            formatted_line, braille_line = self.process_line(line, line_idx)
+                            while line_idx >= len(braille_lines):
+                                braille_lines.append('')
+                            braille_lines[line_idx] = braille_line
+                        else:
+                            while line_idx >= len(braille_lines):
+                                braille_lines.append('')
+                            braille_lines[line_idx] = ""
+
+                # Ajuster la longueur des lignes
+                if len(braille_lines) > len(new_lines):
+                    braille_lines = braille_lines[:len(new_lines)]
+                elif len(braille_lines) < len(new_lines):
+                    braille_lines.extend([''] * (len(new_lines) - len(braille_lines)))
+
+                formatted_braille = '\n'.join(braille_lines)
+                self.text_output.setPlainText(formatted_braille)
+                self.original_braille = formatted_braille
+                self.original_text = text
+            else:
+                # Pour les modifications importantes, utiliser le worker
+                if len(text) > self._chunk_size:
+                    if self._conversion_thread and self._conversion_thread.isRunning():
+                        return
+
+                    progress = QProgressDialog("Conversion en cours...", "Annuler", 0, 100, self)
+                    progress.setWindowModality(Qt.WindowModal)
+                    progress.show()
+
+                    self._conversion_thread = ConversionWorker(
+                        text,
+                        self.parent.braille_engine,
+                        self.parent.available_tables[self.parent.table_combo.currentText()],
+                        self.parent.line_width
+                    )
+                    self._conversion_thread.conversion_done.connect(
+                        lambda t, b: self.on_conversion_complete(t, b, cache_key)
+                    )
+                    self._conversion_thread.progress_updated.connect(progress.setValue)
+                    self._conversion_thread.start()
+                else:
+                    # Pour les petits fichiers, conversion directe
+                    formatted_text = self.parent.braille_engine.wrap_text_by_sentence(text, self.parent.line_width)
+                    formatted_braille = self.parent.braille_engine.to_braille(
+                        formatted_text,
+                        self.parent.available_tables[self.parent.table_combo.currentText()],
+                        self.parent.line_width
+                    )
+                    self._conversion_cache[cache_key] = (formatted_text, formatted_braille)
+                    self.text_output.setPlainText(formatted_braille)
+                    self.original_text = formatted_text
+                    self.original_braille = formatted_braille
+
+        except Exception as e:
+            logging.error(f"Erreur lors de la mise à jour de la conversion: {str(e)}")
+        finally:
+            self.is_updating = False
+
+    def on_conversion_complete(self, formatted_text, formatted_braille, cache_key):
+        """Gère la fin de la conversion asynchrone."""
+        try:
+            self._conversion_cache[cache_key] = (formatted_text, formatted_braille)
+            self.text_output.setPlainText(formatted_braille)
+            self.original_text = formatted_text
+            self.original_braille = formatted_braille
+        except Exception as e:
+            logging.error(f"Erreur lors de la finalisation de la conversion: {str(e)}")

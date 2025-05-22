@@ -332,64 +332,7 @@ class BrailleEngine:
                         # Appliquer les surcharges APRES la conversion LibLouis
                         for char, braille in self.custom_table.items():
                             line = line.replace(char, braille) # Ceci était avant, à vérifier si c'est toujours correct pour les surcharges Braille -> Braille
-                        # Correction: Les surcharges custom_table sont Text -> Braille. Elles devraient être appliquées au texte original avant l'envoi à LibLouis.
-                        # OU si elles sont Braille -> Braille, elles corrigent la sortie de LibLouis.
-                        # D'après custom_table.txt (ex: ح,⠓), ce sont des surcharges Text -> Braille.
-                        # Donc, elles DOIVENT être appliquées au texte ORIGINAL avant LibLouis.
-                        # L'application actuelle après LibLouis est incorrecte pour Text->Braille surcharges.
-
-                        # Correction de la correction: Si custom_table.txt contient "Caractère_texte,Caractère_braille",
-                        # elles devraient remplacer le Caractère_texte par Caractère_braille AVANT d'appeler LibLouis.
-                        # Le déplacement précédent des surcharges après LibLouis était une erreur.
-
-                        # Re-correction: Vérifions l'intention. Si custom_table.txt est pour corriger la sortie de LibLouis
-                        # en remplaçant un Braille incorrect par un Braille correct, le format devrait être Braille,Braille.
-                        # Le format actuel (ح,⠓) suggère Text,Braille.
-
-                        # Assumons que custom_table.txt est Text->Braille surcharges appliquées AVANT LibLouis,
-                        # et les surcharges Braille->Braille pour corriger la sortie LibLouis devraient être gérées séparément ou custom_table.txt devrait être Braille,Braille.
-                        # Le format actuel (Text,Braille) force l'application AVANT LibLouis pour avoir un sens.
-                        # Donc, remettons l'application des surcharges AVANT l'envoi à LibLouis,
-                        # et gérons l'inversion du texte arabe séparément.
-
-                        # Correction finale: Le déplacement initial des surcharges APRÈS LibLouis était correct
-                        # si custom_table.txt est destiné à corriger la SORTIE de LibLouis en remplaçant un BRAILLE incorrect par un BRAILLE correct.
-                        # Le format (ح,⠓) où ح est un caractère texte et ⠓ est Braille est source de confusion ici.
-                        # Si le but est de remplacer "le braille incorrect pour ح (généré par LibLouis) par ⠓",
-                        # la surcharge devrait être "BrailleIncorrectDeح,⠓".
-
-                        # Compte tenu du format actuel de custom_table.txt (Text,Braille) et de son usage historique,
-                        # il est plus probable qu'il s'agisse de surcharges appliquées au texte original avant LibLouis.
-                        # Cependant, les surcharges comme `لا,⠇⠁` sont des combinaisons, et LibLouis gère déjà les combinaisons.
-                        # L'intention de les appliquer après LibLouis pour corriger la sortie Braille semble plus logique,
-                        # même si le format Text,Braille est contre-intuitif pour une correction Braille,Braille.
-
-                        # Revert application of surcharges AFTER LibLouis.
-                        # The correct place for Text,Braille surcharges is BEFORE LibLouis.
-                        # However, the *effect* we want (correcting LibLouis output) implies applying AFTER.
-                        # Let's stick to applying AFTER LibLouis, assuming custom_table.txt implicitly means
-                        # "remplace la traduction Braille de ce caractère/combinaison par cette traduction Braille".
-                        # Le format Text,Braille dans custom_table.txt est problématique pour cette interprétation,
-                        # mais c'est le format existant.
-
-                        # Tentons d'appliquer les surcharges au texte Braille résultant en remplaçant les caractères texte
-                        # dans le texte Braille résultant par leur équivalent Braille. C'est logiquement incorrect,
-                        # mais suit l'idée de corriger la sortie.
-
-                        # Nouvelle tentative d'application des surcharges: Remplacer dans le texte ORIGINAL
-                        # avant l'envoi, mais en utilisant le mapping Braille de la surcharge.
-                        # C'est aussi incorrect.
-
-                        # La SEULE façon cohérente d'utiliser custom_table.txt au format Text,Braille
-                        # est de l'appliquer AVANT l'envoi à LibLouis.
-                        # Si l'application après LibLouis est nécessaire pour corriger sa sortie,
-                        # custom_table.txt DOIT être au format Braille,Braille.
-
-                        # Revenons à l'idée initiale: LibLouis a un problème avec le RTL ou la table est mauvaise.
-                        # L'inversion pourrait aider si la table attend l'input RTL.
-
-                        # On déplace l'application des surcharges AVANT le split en lignes et le traitement.
-                        # Et on ajoute l'inversion conditionnelle.
+                        
 
             # Appliquer les surcharges sur le texte original avant tout traitement par lots ou inversion
             processed_text_with_surcharges = text

@@ -54,13 +54,26 @@ class Database:
                     nom TEXT,
                     chemin TEXT,
                     file_type TEXT,
-                    FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id)
+                    operation_type TEXT
                 )''')
+            # Ajouter la colonne save_type si elle n'existe pas
+            self.cursor.execute("PRAGMA table_info(fichiers)")
+            columns = [col[1] for col in self.cursor.fetchall()]
+            if 'save_type' not in columns:
+                self.cursor.execute('ALTER TABLE fichiers ADD COLUMN save_type TEXT')
+
             self.cursor.execute('''CREATE TABLE IF NOT EXISTS impressions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     utilisateur_id INTEGER,
                     char_count INTEGER,
                     imprimante TEXT,
+                    FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id)
+                )''')
+            # Ajouter la table user_settings si elle n'existe pas
+            self.cursor.execute('''CREATE TABLE IF NOT EXISTS user_settings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    utilisateur_id INTEGER NOT NULL UNIQUE,
+                    settings TEXT,
                     FOREIGN KEY (utilisateur_id) REFERENCES utilisateurs(id)
                 )''')
             self.conn.commit()
@@ -205,13 +218,13 @@ class Database:
         except sqlite3.Error as e:
             logging.error(f"Text deletion error: {e}")
 
-    def sauvegarder_fichier(self, utilisateur_id: int, fichier: Fichier) -> None:
+    def sauvegarder_fichier(self, utilisateur_id: int, fichier: Fichier, operation_type: str, save_type: str) -> None:
         """Save a file record for a user."""
         try:
             file_type = os.path.splitext(fichier.chemin)[1][1:].lower()
             self.cursor.execute(
-                "INSERT INTO fichiers (utilisateur_id, nom, chemin, file_type) VALUES (?, ?, ?, ?)",
-                (utilisateur_id, fichier.nom, fichier.chemin, file_type)
+                "INSERT INTO fichiers (utilisateur_id, nom, chemin, file_type, operation_type, save_type) VALUES (?, ?, ?, ?, ?, ?)",
+                (utilisateur_id, fichier.nom, fichier.chemin, file_type, operation_type, save_type)
             )
             self.conn.commit()
         except sqlite3.Error as e:
@@ -233,18 +246,29 @@ class Database:
         try:
             self.cursor.execute("SELECT total_usage_time FROM utilisateurs WHERE id = ?", (user_id,))
             total_time = self.cursor.fetchone()[0] or 0
+
+            # Modifier la requête pour grouper par file_type, operation_type et save_type
             self.cursor.execute(
-                "SELECT file_type, COUNT(*) FROM fichiers WHERE utilisateur_id = ? GROUP BY file_type", 
+                "SELECT file_type, operation_type, save_type, COUNT(*) FROM fichiers WHERE utilisateur_id = ? GROUP BY file_type, operation_type, save_type", 
                 (user_id,)
             )
-            file_stats = dict(self.cursor.fetchall())
+            file_stats_raw = self.cursor.fetchall()
+            
+            # Structurer les données des fichiers
+            file_stats = {'import': {}, 'export': {}}
+            for file_type, operation_type, save_type, count in file_stats_raw:
+                if operation_type in file_stats:
+                    if file_type not in file_stats[operation_type]:
+                        file_stats[operation_type][file_type] = {}
+                    file_stats[operation_type][file_type][save_type] = count
+
             self.cursor.execute("SELECT COUNT(*) FROM textes WHERE utilisateur_id = ?", (user_id,))
             text_count = self.cursor.fetchone()[0]
             self.cursor.execute("SELECT COUNT(*) FROM impressions WHERE utilisateur_id = ?", (user_id,))
             print_count = self.cursor.fetchone()[0]
             return {
                 "total_usage_time": total_time,
-                "file_stats": file_stats,
+                "file_stats": file_stats, # Maintenant structuré par type d'opération et save_type
                 "text_count": text_count,
                 "print_count": print_count
             }
@@ -269,3 +293,16 @@ class Database:
             self.conn.close()
         except sqlite3.Error as e:
             logging.error(f"Database close error: {e}")
+
+    def supprimer_fichier(self, utilisateur_id: int, fichier: Fichier) -> None:
+        """Delete a file record for a user."""
+        try:
+            # Modifier la requête pour inclure operation_type si nécessaire, ou supprimer par chemin
+            # La suppression par chemin est plus simple et suffisante ici si le chemin est unique par utilisateur
+            self.cursor.execute(
+                "DELETE FROM fichiers WHERE utilisateur_id = ? AND chemin = ?",
+                (utilisateur_id, fichier.chemin)
+            )
+            self.conn.commit()
+        except sqlite3.Error as e:
+            logging.error(f"File deletion error: {e}")

@@ -8,16 +8,18 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton,
     QComboBox, QTabWidget, QFileDialog, QToolBar, QAction, QMessageBox,
     QStatusBar, QSlider, QMenuBar, QMenu, QSpinBox, QInputDialog, QLabel,
-    QApplication, QSpacerItem, QSizePolicy, QProgressDialog, QFontComboBox
+    QApplication, QSpacerItem, QSizePolicy, QProgressDialog, QFontComboBox,
+    QDialog, QDialogButtonBox
 )
 from PyQt5.QtCore import Qt, QTimer, QEvent, QTime, QSize, QThread, pyqtSignal
-from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat, QFontMetrics , QTextDocument , QTextOption
+from PyQt5.QtGui import QIcon, QFont, QTextCharFormat, QTextCursor, QTextBlockFormat, QTextImageFormat, QFontMetrics, QTextDocument, QTextOption
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from backend.braille_engine import BrailleEngine
 from backend.file_handler import FileHandler
 from backend.database import Database
 from backend.models import Texte, Fichier, Impression
 from backend.config import BRAILLE_FONT_NAME
+from backend.translator import Translator
 from frontend.auth import AuthWidget
 from frontend.styles import set_light_mode, set_dark_mode
 from frontend.custom_table import CustomBrailleTableWidget
@@ -110,12 +112,26 @@ class BrailleTab(QWidget):
 
     def init_ui(self):
         layout = QHBoxLayout(self)
+        
+        # Créer un layout vertical pour la zone de texte d'entrée
+        input_layout = QVBoxLayout()
+        self.text_input_label = QLabel("Texte :")
         self.text_input = QTextEdit()
-        self.text_output = QTextEdit()
         self.text_input.setStyleSheet("QTextEdit { border: 1px solid gray; }")
+        input_layout.addWidget(self.text_input_label)
+        input_layout.addWidget(self.text_input)
+        
+        # Créer un layout vertical pour la zone de texte de sortie
+        output_layout = QVBoxLayout()
+        self.text_output_label = QLabel("Braille :")
+        self.text_output = QTextEdit()
         self.text_output.setStyleSheet("QTextEdit { border: 1px solid gray; }")
-        layout.addWidget(self.text_input)
-        layout.addWidget(self.text_output)
+        output_layout.addWidget(self.text_output_label)
+        output_layout.addWidget(self.text_output)
+        
+        # Ajouter les layouts à la mise en page principale
+        layout.addLayout(input_layout)
+        layout.addLayout(output_layout)
 
     def connect_text_changed(self):
         self.text_input.textChanged.connect(self.parent.on_text_changed)
@@ -135,6 +151,41 @@ class BrailleTab(QWidget):
         self.pending_changes.clear()
         self.text_input.setTextCursor(cursor)
 
+class TranslationDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Traduction")
+        self.setModal(True)
+        self.init_ui()
+
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+
+        # Langue source
+        source_layout = QHBoxLayout()
+        source_layout.addWidget(QLabel("Langue source :"))
+        self.source_lang = QComboBox()
+        self.source_lang.addItems(self.parent().translator.get_supported_languages())
+        source_layout.addWidget(self.source_lang)
+        layout.addLayout(source_layout)
+
+        # Langue cible
+        target_layout = QHBoxLayout()
+        target_layout.addWidget(QLabel("Langue cible :"))
+        self.target_lang = QComboBox()
+        self.target_lang.addItems(self.parent().translator.get_supported_languages())
+        self.target_lang.setCurrentText("Français")  # Langue cible par défaut
+        target_layout.addWidget(self.target_lang)
+        layout.addLayout(target_layout)
+
+        # Boutons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
 class BrailleUI(QMainWindow):
     def __init__(self, app):
         super().__init__()
@@ -148,6 +199,7 @@ class BrailleUI(QMainWindow):
         self.file_handler = FileHandler()
         self.file_handler.parent = self
         self.db = Database()
+        self.translator = Translator()
         self.available_tables = self.braille_engine.get_available_tables()
 
         self.dark_mode = False
@@ -167,11 +219,29 @@ class BrailleUI(QMainWindow):
         self.usage_timer = QTimer()
         self.usage_timer.timeout.connect(self.update_usage_time)
         self.usage_timer.start(1000)
+        self.conversion_mode = "text_to_braille"  # Mode de conversion par défaut
 
         self.debounce_timer = QTimer()
         self.debounce_timer.setSingleShot(True)
         self.debounce_timer.timeout.connect(self.process_debounced_conversion)
         self.debounce_delay = 100
+
+        # Attributs pour la saisie Braille directe
+        self.braille_points_pressed = set()
+        self.braille_key_map = {
+            Qt.Key_F: 1,
+            Qt.Key_D: 2,
+            Qt.Key_S: 3,
+            Qt.Key_J: 4,
+            Qt.Key_K: 5,
+            Qt.Key_L: 6,
+            Qt.Key_E: 7, # Généralement point 7
+            Qt.Key_I: 8  # Généralement point 8
+        }
+        self.braille_typing_timer = QTimer()
+        self.braille_typing_timer.setSingleShot(True)
+        self.braille_typing_timer.timeout.connect(self.finalize_braille_cell)
+        self.braille_typing_delay = 300 # Délai en ms pour finaliser la cellule
 
         self.init_ui()
         
@@ -397,6 +467,9 @@ class BrailleUI(QMainWindow):
         control_layout.addLayout(zoom_layout)
         self.main_layout.addLayout(control_layout)
 
+        # Label pour afficher le temps d'utilisation
+        self.usage_time_label = QLabel("Temps d'utilisation : --:--:--")
+        
         self.init_status_bar()
 
         self.stack_layout.addWidget(self.main_widget)
@@ -569,6 +642,17 @@ class BrailleUI(QMainWindow):
         invert_action.triggered.connect(self.invert_text)
         edit_menu.addAction(invert_action)
 
+        # Ajouter le menu de traduction
+        translate_menu = menu_bar.addMenu("Traduction")
+        translate_text_action = QAction("Traduire le texte", self)
+        translate_text_action.setShortcut("Ctrl+Shift+T")
+        translate_text_action.triggered.connect(self.translate_text)
+        translate_menu.addAction(translate_text_action)
+
+        detect_lang_action = QAction("Détecter la langue", self)
+        detect_lang_action.triggered.connect(self.detect_language)
+        translate_menu.addAction(detect_lang_action)
+
     def init_toolbar(self):
         icons = [
             ("icons/new.png", "Nouveau", self.new_document, "new_action"),
@@ -581,7 +665,7 @@ class BrailleUI(QMainWindow):
             ("icons/word.png", "Exporter en Word", self.export_to_word, "word_action"),
             ("icons/braille_print.png", "Imprimer en Braille", self.print_braille, "print_action"),
             ("icons/sun.png", "Mode Sombre", self.toggle_dark_mode, "dark_mode_action"),
-            ("icons/invert.png", "Inverser Texte/Braille", self.invert_text, "invert_action"),
+            ("icons/reverse.png", "Inverser Texte/Braille", self.invert_text, "invert_action"),
             ("icons/bold.png", "Gras", self.toggle_bold, ""),
             ("icons/italic.png", "Italique", self.toggle_italic, ""),
             ("icons/souligne.png", "Souligné", self.toggle_underline, ""),
@@ -622,6 +706,7 @@ class BrailleUI(QMainWindow):
     def init_status_bar(self):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+        # Ajouter les autres compteurs à droite du temps d'utilisation
         self.status_bar.addPermanentWidget(self.page_count_label)
         self.status_bar.addPermanentWidget(self.page_count)
         self.status_bar.addPermanentWidget(self.line_count_label)
@@ -664,91 +749,146 @@ class BrailleUI(QMainWindow):
 
     def invert_text(self):
         tab = self.tab_widget.currentWidget()
-        if not tab:
-            return
-
-        tab.text_input.blockSignals(True)
-        tab.text_output.blockSignals(True)
-
-        input_text = tab.text_input.toPlainText()
-        output_text = tab.text_output.toPlainText()
-
-        input_cursor = tab.text_input.textCursor()
-        output_cursor = tab.text_output.textCursor()
-        input_cursor_pos = input_cursor.position()
-        output_cursor_pos = output_cursor.position()
-
-        tab.text_input.setPlainText(output_text)
-        tab.text_output.setPlainText(input_text)
-        tab.original_text = output_text
-        tab.original_braille = input_text
-
-        new_input_cursor = tab.text_input.textCursor()
-        new_output_cursor = tab.text_output.textCursor()
-        new_input_cursor.setPosition(min(output_cursor_pos, len(output_text)))
-        new_output_cursor.setPosition(min(input_cursor_pos, len(input_text)))
-        tab.text_input.setTextCursor(new_input_cursor)
-        tab.text_output.setTextCursor(new_output_cursor)
-
-        tab.text_input.blockSignals(False)
-        tab.text_output.blockSignals(False)
-
-        self.update_conversion()
-        self.status_bar.showMessage("Texte et Braille inversés")
+        if tab:
+            tab.text_input.blockSignals(True)
+            tab.text_output.blockSignals(True)
+            if self.conversion_mode == "text_to_braille":
+                self.conversion_mode = "braille_to_text"
+                tab.text_input_label.setText("Braille :")
+                tab.text_output_label.setText("Texte :")
+                tab.text_input.setPlainText(tab.original_braille)
+                selected_table = self.table_combo.currentText()
+                if tab.original_braille and selected_table:
+                    text = self.braille_engine.from_braille(tab.original_braille, self.available_tables[selected_table])
+                    tab.text_output.setPlainText(text)
+                else:
+                    tab.text_output.clear()
+            else:
+                self.conversion_mode = "text_to_braille"
+                tab.text_input_label.setText("Texte :")
+                tab.text_output_label.setText("Braille :")
+                tab.text_input.setPlainText(tab.original_text)
+                tab.text_output.setPlainText(tab.original_braille)
+            tab.text_input.blockSignals(False)
+            tab.text_output.blockSignals(False)
+            self.update_counters()
 
     def keyPressEvent(self, event):
+        # Cette méthode gère les raccourcis globaux au niveau de la fenêtre principale
+        # La saisie Braille directe est gérée par l'eventFilter sur la zone de texte Braille
+        key = event.key()
+        modifiers = event.modifiers()
+
+        # Gérer les raccourcis Ctrl et autres touches spéciales
+        if modifiers & Qt.ControlModifier:
+            if key == Qt.Key_B:
+                self.toggle_bold()
+                event.accept()
+                return
+            elif key == Qt.Key_I:
+                if modifiers & Qt.ShiftModifier:
+                     self.invert_text()
+                else:
+                    self.toggle_italic()
+                event.accept()
+                return
+            elif key == Qt.Key_U:
+                self.toggle_underline()
+                event.accept()
+                return
+            elif key == Qt.Key_Plus:
+                self.zoom_slider.setValue(self.zoom_slider.value() + 1)
+                self.apply_zoom()
+                event.accept()
+                return
+            elif key == Qt.Key_Minus:
+                self.zoom_slider.setValue(self.zoom_slider.value() - 1)
+                self.apply_zoom()
+                event.accept()
+                return
+            elif key == Qt.Key_T:
+                 if modifiers & Qt.ShiftModifier:
+                      self.translate_text()
+                      event.accept() # Accepter si la traduction est déclenchée
+                      return
+                 # Ctrl+T sans Shift n'a pas de comportement spécifique immédiat ici.
+                 # Il sera géré par le comportement par défaut si non intercepté ailleurs.
+
+        # Gérer les touches de fonction comme F11
+        if key == Qt.Key_F11:
+            self.toggle_fullscreen()
+            event.accept()
+            return
+
+        # Pour toutes les autres touches non gérées ici, laisser la propagation par défaut.
+        # Si le focus est sur un QTextEdit, celui-ci gérera la saisie ou le déplacement du curseur.
+        super().keyPressEvent(event)
+
+    # Nouvelle méthode eventFilter pour gérer les événements de widgets spécifiques
+    def eventFilter(self, obj, event):
+        # Vérifier si l'événement est une pression de touche et si l'objet est la zone de texte Braille
+        tab = self.tab_widget.currentWidget()
+        if tab and obj == tab.text_input and event.type() == QEvent.KeyPress:
+            key = event.key()
+            modifiers = event.modifiers()
+
+            # Si le mode de conversion est braille_to_text
+            if self.conversion_mode == "braille_to_text":
+                # Gérer les touches correspondant aux points Braille
+                if key in self.braille_key_map:
+                    point = self.braille_key_map[key]
+                    self.braille_points_pressed.add(point)
+                    self.braille_typing_timer.start(self.braille_typing_delay)
+                    event.accept() # Accepter l'événement pour empêcher la saisie normale
+                    return True # Indiquer que l'événement a été géré
+                # Gérer les touches de finalisation de cellule ou de navigation
+                elif key in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
+                    self.finalize_braille_cell() # Finaliser la cellule actuelle
+                    # Retourner False pour permettre au QTextEdit d'insérer l'espace/saut de ligne
+                    return False
+                elif key == Qt.Key_Backspace:
+                    self.finalize_braille_cell() # Finaliser avant de supprimer
+                    # Retourner False pour permettre au QTextEdit de gérer la suppression
+                    return False
+                elif key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right):
+                    self.finalize_braille_cell() # Finaliser avant de déplacer le curseur
+                    # Retourner False pour permettre au QTextEdit de déplacer le curseur
+                    return False
+                else:
+                    # Si une autre touche est pressée en mode Braille (non point, non finalisation, non flèche)
+                    # finaliser la cellule et bloquer la saisie normale.
+                    self.finalize_braille_cell()
+                    event.accept() # Assurer que le caractère n'est pas saisi
+                    return True # Indiquer que l'événement a été géré
+
+        # Pour tous les autres objets ou événements non gérés ici, passer à la classe parente (comportement par défaut)
+        return super().eventFilter(obj, event)
+
+    def finalize_braille_cell(self):
+        if not self.braille_points_pressed:
+            return
+
         tab = self.tab_widget.currentWidget()
         if not tab:
             return
 
-        key = event.key()
-        logging.debug(f"Key pressed: {key}")
+        # Calculer la valeur Unicode de la cellule Braille
+        braille_value = 0x2800 # Code Unicode de la cellule Braille vide
+        for point in sorted(list(self.braille_points_pressed)): # Trier les points pour une valeur cohérente
+            if 1 <= point <= 8:
+                braille_value |= (1 << (point - 1))
 
-        if not (event.modifiers() & Qt.ControlModifier) and (
-            (Qt.Key_A <= key <= Qt.Key_Z) or
-            (Qt.Key_0 <= key <= Qt.Key_9) or
-            key in (Qt.Key_Space, Qt.Key_Period, Qt.Key_Comma, Qt.Key_Apostrophe, Qt.Key_QuoteDbl, Qt.Key_Return, Qt.Key_Enter)
-        ):
-            super().keyPressEvent(event)
-            self.update_conversion()
-            return
+        braille_char = chr(braille_value)
 
-        if key in (Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right):
-            cursor = tab.text_input.textCursor()
-            cursor_pos = cursor.position()
-            logging.debug(f"Before arrow key {key} - Cursor position: {cursor_pos}")
-            if key == Qt.Key_Up:
-                cursor.movePosition(QTextCursor.Up)
-            elif key == Qt.Key_Down:
-                cursor.movePosition(QTextCursor.Down)
-            elif key == Qt.Key_Left:
-                cursor.movePosition(QTextCursor.Left)
-            elif key == Qt.Key_Right:
-                cursor.movePosition(QTextCursor.Right)
-            tab.text_input.setTextCursor(cursor)
-            tab.text_input.ensureCursorVisible()
-            logging.debug(f"After arrow key {key} - Cursor position: {cursor.position()}")
-            self.update_counters()
-            return
+        # Insérer le caractère Braille dans la zone de texte Braille
+        cursor = tab.text_input.textCursor()
+        cursor.insertText(braille_char)
 
-        if event.modifiers() & Qt.ControlModifier:
-            if key == Qt.Key_B:
-                self.toggle_bold()
-            elif key == Qt.Key_I:
-                self.toggle_italic()
-            elif key == Qt.Key_U:
-                self.toggle_underline()
-            elif key == Qt.Key_Plus:
-                self.zoom_slider.setValue(self.zoom_slider.value() + 1)
-                self.apply_zoom()
-            elif key == Qt.Key_Minus:
-                self.zoom_slider.setValue(self.zoom_slider.value() - 1)
-                self.apply_zoom()
+        # Effacer les points pressés pour la prochaine cellule
+        self.braille_points_pressed.clear()
 
-        if key == Qt.Key_F11:
-            self.toggle_fullscreen()
-
-        super().keyPressEvent(event)
+        # update_conversion est déjà appelée par le signal textChanged du QTextEdit
+        # self.update_conversion()
 
     def toggle_fullscreen(self):
         if self.isFullScreen():
@@ -1259,6 +1399,10 @@ class BrailleUI(QMainWindow):
         welcome_text = welcome_texts.get(selected_table, "Welcome!")
         tab.text_input.setPlainText(welcome_text)
         
+        # Installer le filtre d'événements sur la zone de texte d'entrée pour la saisie Braille directe
+        tab.text_input.installEventFilter(self)
+
+        
         # Appliquer la largeur de ligne par défaut (33) au nouvel onglet
         self.apply_line_width_to_tab(tab)
         
@@ -1329,14 +1473,12 @@ class BrailleUI(QMainWindow):
             tab.text_input.blockSignals(True)
             tab.text_output.blockSignals(True)
 
-            # Appliquer la largeur de ligne par défaut (33) à l'onglet importé
-            self.apply_line_width_to_tab(tab)
+            # Installer le filtre d'événements sur la zone de texte d'entrée pour la saisie Braille directe
+            tab.text_input.installEventFilter(self)
 
             # Configurer la largeur de ligne pour le nouvel onglet
             tab.text_input.setLineWrapMode(QTextEdit.WidgetWidth)
-            tab.text_input.setWordWrapMode(QTextOption.WordWrap)
             tab.text_output.setLineWrapMode(QTextEdit.WidgetWidth)
-            tab.text_output.setWordWrapMode(QTextOption.WordWrap)
 
             # Définir la largeur minimale
             min_width = self.line_width * tab.text_input.fontMetrics().averageCharWidth()
@@ -1403,7 +1545,7 @@ class BrailleUI(QMainWindow):
             if self.logged_in_user:
                 try:
                     fichier = Fichier(tab_title, file_path)
-                    self.db.sauvegarder_fichier(self.logged_in_user.id, fichier)
+                    self.db.sauvegarder_fichier(self.logged_in_user.id, fichier, 'import', tab.save_type)
                 except Exception as e:
                     logging.error(f"Erreur lors de l'ajout du fichier dans la base de données : {str(e)}")
                     self.status_bar.showMessage("Erreur lors de la sauvegarde du fichier dans la base de données")
@@ -1490,7 +1632,7 @@ class BrailleUI(QMainWindow):
             if self.logged_in_user:
                 try:
                     fichier = Fichier(tab_title, file_path)
-                    self.db.sauvegarder_fichier(self.logged_in_user.id, fichier)
+                    self.db.sauvegarder_fichier(self.logged_in_user.id, fichier, 'import', mode)
                 except Exception as e:
                     logging.error(f"Erreur lors de l'ajout de l'image dans la base de données : {str(e)}")
                     self.status_bar.showMessage("Erreur lors de la sauvegarde de l'image dans la base de données")
@@ -1556,7 +1698,7 @@ class BrailleUI(QMainWindow):
             if self.logged_in_user:
                 try:
                     fichier = Fichier(tab_title, file_path)
-                    self.db.sauvegarder_fichier(self.logged_in_user.id, fichier)
+                    self.db.sauvegarder_fichier(self.logged_in_user.id, fichier, 'export', tab.save_type)
                 except Exception as e:
                     logging.error(f"Erreur lors de l'ajout du fichier sauvegardé dans la base de données : {str(e)}")
                     self.status_bar.showMessage("Erreur lors de la sauvegarde du fichier dans la base de données")
@@ -1595,7 +1737,7 @@ class BrailleUI(QMainWindow):
                 if self.logged_in_user:
                     try:
                         fichier = Fichier(tab_title, file_path)
-                        self.db.sauvegarder_fichier(self.logged_in_user.id, fichier)
+                        self.db.sauvegarder_fichier(self.logged_in_user.id, fichier, 'export', tab.save_type)
                     except Exception as e:
                         logging.error(f"Erreur lors de l'ajout du fichier Braille dans la base de données : {str(e)}")
                         self.status_bar.showMessage("Erreur lors de la sauvegarde du fichier dans la base de données")
@@ -1689,17 +1831,55 @@ class BrailleUI(QMainWindow):
             return
         try:
             stats = self.db.get_usage_stats(self.logged_in_user.id)
-            total_time = stats.get('total_time', 0)
-            files_processed = stats.get('files_processed', 0)
-            prints = stats.get('prints', 0)
+            total_time = stats.get('total_usage_time', 0)
+            # Calculer le nombre total de fichiers traités (somme des importations et exportations)
+            files_imported = sum(sum(formats.values()) for formats in stats.get('file_stats', {}).get('import', {}).values())
+            files_exported = sum(sum(formats.values()) for formats in stats.get('file_stats', {}).get('export', {}).values())
+            total_files_processed = files_imported + files_exported
+
+
+            prints = stats.get('print_count', 0)
             hours, remainder = divmod(total_time, 3600)
             minutes, seconds = divmod(remainder, 60)
+
             message = (
                 f"Statistiques d'utilisation pour {self.current_email}:\n\n"
                 f"Temps total d'utilisation: {hours}h {minutes}m {seconds}s\n"
-                f"Fichiers traités: {files_processed}\n"
-                f"Impressions Braille: {prints}"
+                f"Total des fichiers traités: {total_files_processed}\n"
             )
+
+            # Mapping pour afficher les noms complets des save_types
+            save_type_display_map = {
+                "Texte + Braille": "Texte + Braille",
+                "Braille uniquement": "Braille uniquement",
+                "Texte uniquement": "Texte uniquement",
+                "text": "Image (Texte OCR)",
+                "graphic": "Image (Graphique)",
+                "hybrid": "Image (Hybride)"
+            }
+
+
+            # Ajouter les détails des fichiers importés avec save_type
+            import_stats = stats.get('file_stats', {}).get('import', {})
+            if import_stats:
+                message += "\nFichiers importés :\n"
+                for file_type, save_types in import_stats.items():
+                    for save_type, count in save_types.items():
+                         display_save_type = save_type_display_map.get(save_type, save_type) # Utiliser le mapping
+                         message += f"- {file_type.upper()} ({display_save_type}): {count}\n"
+
+
+            # Ajouter les détails des fichiers exportés avec save_type
+            export_stats = stats.get('file_stats', {}).get('export', {})
+            if export_stats:
+                message += "\nFichiers exportés :\n"
+                for file_type, save_types in export_stats.items():
+                     for save_type, count in save_types.items():
+                        display_save_type = save_type_display_map.get(save_type, save_type) # Utiliser le mapping
+                        message += f"- {file_type.upper()} ({display_save_type}): {count}\n"
+
+            message += f"\nImpressions Braille: {prints}"
+
             QMessageBox.information(self, "Statistiques", message)
         except Exception as e:
             logging.error(f"Erreur dans show_usage_stats : {str(e)}")
@@ -1733,9 +1913,18 @@ class BrailleUI(QMainWindow):
 
         try:
             text = tab.text_input.toPlainText()
-            lines = text.split('\n')
-            line_count = len(lines)
-            word_count = sum(len(re.findall(r'\b\w+\b', line)) for line in lines)
+            # Calculer le nombre de lignes visuelles en tenant compte du wrapping
+            visual_line_count = 0
+            document = tab.text_input.document()
+            block = document.begin()
+            while block.isValid():
+                layout = block.layout()
+                if layout:
+                    visual_line_count += layout.lineCount()
+                block = block.next()
+
+            line_count = visual_line_count # Utiliser le nombre de lignes visuelles
+            word_count = sum(len(re.findall(r'\b\w+\b', line)) for line in text.split('\n'))
             page_count = (line_count + self.lines_per_page - 1) // self.lines_per_page if self.lines_per_page > 0 else 1
 
             self.page_count.setText(str(page_count))
@@ -1743,7 +1932,7 @@ class BrailleUI(QMainWindow):
             self.word_count.setText(str(word_count))
 
             self.status_bar.showMessage(
-                f"Pages: {page_count} | Lignes: {line_count} | Mots: {word_count}", 3000
+                f"{getattr(self, 'current_usage_time_str', 'Temps d\'utilisation : --:--:--')} | Pages: {page_count} | Lignes: {line_count} | Mots: {word_count}", 3000
             )
         except Exception as e:
             logging.error(f"Erreur dans update_counters : {str(e)}")
@@ -1777,6 +1966,7 @@ class BrailleUI(QMainWindow):
         tab.is_updating = True
         logging.debug("Déclenchement de la conversion en temps réel")
         try:
+            # Désactiver temporairement les signaux pour éviter les boucles de conversion
             tab.text_input.blockSignals(True)
             tab.text_output.blockSignals(True)
 
@@ -1784,108 +1974,55 @@ class BrailleUI(QMainWindow):
             current_output_braille = tab.text_output.toPlainText()
             selected_table = self.table_combo.currentText()
 
-            tab.last_modified_lines.clear()
+            # Déterminer quelle zone de texte a probablement déclenché le changement (pas parfait, mais aide)
+            # Une approche plus robuste nécessiterait de suivre le focus ou d'utiliser des signaux personnalisés.
+            # Ici, nous nous basons sur le mode de conversion pour déterminer quelle zone est l'entrée principale.
 
-            text_changed = current_input_text != tab.original_text
-            braille_changed = current_output_braille != tab.original_braille
-
-            if text_changed and selected_table:
-                logging.debug("Text changed, updating Braille")
-                if current_input_text.strip():
-                    if not tab.original_text:
+            if self.conversion_mode == "text_to_braille":
+                # En mode Texte -> Braille, la zone d'entrée principale est text_input
+                if current_input_text != tab.original_text:
+                    logging.debug("Mode Texte->Braille: text_input changed, converting to Braille")
+                    if current_input_text.strip():
+                        # Effectuer une reconversion complète lorsque le texte d'entrée change
                         formatted_text = self.braille_engine.wrap_text_by_sentence(current_input_text, self.line_width)
                         formatted_braille = self.braille_engine.to_braille(formatted_text, self.available_tables[selected_table], self.line_width)
+                        tab.text_output.setPlainText(formatted_braille)
+                        tab.original_braille = formatted_braille
+                        tab.original_text = current_input_text
                     else:
-                        old_lines = tab.original_text.split('\n')
-                        new_lines = current_input_text.split('\n')
-                        modified_lines = set()
-                        for i in range(min(len(old_lines), len(new_lines))):
-                            if old_lines[i] != new_lines[i]:
-                                modified_lines.add(i)
-                        for i in range(len(old_lines), len(new_lines)):
-                            modified_lines.add(i)
+                        tab.text_output.clear()
+                        tab.original_braille = ""
 
-                        braille_lines = tab.original_braille.split('\n') if tab.original_braille else [''] * len(old_lines)
-                        for line_idx in modified_lines:
-                            if line_idx < len(new_lines):
-                                line = new_lines[line_idx]
-                                if line.strip():
-                                    formatted_line = self.braille_engine.wrap_text_by_sentence(line, self.line_width)
-                                    braille_line = self.braille_engine.to_braille(formatted_line, self.available_tables[selected_table], self.line_width)
-                                    braille_line = ''.join(char for char in braille_line if ('\u2800' <= char <= '\u28FF') or char.isspace())
-                                    while line_idx >= len(braille_lines):
-                                        braille_lines.append('')
-                                    braille_lines[line_idx] = braille_line
-                                else:
-                                    while line_idx >= len(braille_lines):
-                                        braille_lines.append('')
-                                    braille_lines[line_idx] = ""
+            elif self.conversion_mode == "braille_to_text":
+                # En mode Braille -> Texte, la zone d'entrée principale est text_input (où on tape le Braille)
+                # et la zone de sortie est text_output (où le texte clair apparaît)
+                if current_input_text != tab.original_braille: # En mode Braille, original_braille stocke le *braille* tapé dans text_input
+                    logging.debug("Mode Braille->Texte: text_input (Braille) changed, converting to Text")
+                    if current_input_text.strip():
+                        # Effectuer une conversion Braille -> Texte
+                        # La fonction from_braille gère déjà le wrapping si nécessaire.
+                        text = self.braille_engine.from_braille(current_input_text, self.available_tables[selected_table], self.line_width)
+                        tab.text_output.setPlainText(text)
+                        tab.original_text = text # original_text stocke maintenant le texte clair généré
+                        tab.original_braille = current_input_text # original_braille stocke le Braille tapé
+                    else:
+                        tab.text_output.clear()
+                        tab.original_text = ""
 
-                        if len(braille_lines) > len(new_lines):
-                            braille_lines = braille_lines[:len(new_lines)]
-                        elif len(braille_lines) < len(new_lines):
-                            braille_lines.extend([''] * (len(new_lines) - len(braille_lines)))
+            # Note: Les changements dans text_output (zone de droite) ne déclenchent pas de conversion automatique
+            # dans aucun mode pour éviter les boucles ou comportements imprévus lorsque l'utilisateur modifie la sortie.
+            # L'utilisateur est censé modifier la zone d'entrée principale (text_input).
 
-                        formatted_braille = '\n'.join(braille_lines)
-                        braille_words = formatted_braille.split()
-                        if len(braille_words) != len(set(braille_words)) or any(not ('\u2800' <= char <= '\u28FF') and not char.isspace() for char in formatted_braille):
-                            logging.debug("Incohérence détectée dans le Braille, forçage de la conversion complète")
-                            formatted_text = self.braille_engine.wrap_text_by_sentence(current_input_text, self.line_width)
-                            formatted_braille = self.braille_engine.to_braille(formatted_text, self.available_tables[selected_table], self.line_width)
-                            formatted_braille = ''.join(char for char in formatted_braille if ('\u2800' <= char <= '\u28FF') or char.isspace())
-
-                    tab.text_output.setPlainText(formatted_braille)
-                    tab.original_braille = formatted_braille
-                    tab.original_text = current_input_text
-                else:
-                    tab.text_output.clear()
-                    tab.original_braille = ""
-            elif braille_changed and selected_table:
-                logging.debug("Braille changed, updating Text")
-                if current_output_braille.strip():
-                    old_braille_lines = tab.original_braille.split('\n')
-                    new_braille_lines = current_output_braille.split('\n')
-                    modified_lines = set()
-                    for i in range(min(len(old_braille_lines), len(new_braille_lines))):
-                        if old_braille_lines[i] != new_braille_lines[i]:
-                            modified_lines.add(i)
-                    for i in range(len(old_braille_lines), len(new_braille_lines)):
-                        modified_lines.add(i)
-
-                    text_lines = tab.original_text.split('\n') if tab.original_text else [''] * len(old_braille_lines)
-                    for line_idx in modified_lines:
-                        if line_idx < len(new_braille_lines):
-                            line = new_braille_lines[line_idx]
-                            if line.strip():
-                                formatted_line = self.braille_engine.wrap_text_by_sentence(line, self.line_width)
-                                text_line = self.braille_engine.from_braille(formatted_line, self.available_tables[selected_table], self.line_width)
-                                while line_idx >= len(text_lines):
-                                    text_lines.append('')
-                                text_lines[line_idx] = text_line
-                            else:
-                                while line_idx >= len(text_lines):
-                                    text_lines.append('')
-                                text_lines[line_idx] = ""
-
-                    if len(text_lines) > len(new_braille_lines):
-                        text_lines = text_lines[:len(new_braille_lines)]
-                    elif len(text_lines) < len(new_braille_lines):
-                        text_lines.extend([''] * (len(new_braille_lines) - len(text_lines)))
-
-                    formatted_text = '\n'.join(text_lines)
-                    tab.text_input.setPlainText(formatted_text)
-                    tab.original_text = formatted_text
-                    tab.original_braille = current_output_braille
-                else:
-                    tab.text_input.clear()
-                    tab.original_text = ""
-
+            # Restaurer la position du curseur (peut nécessiter un ajustement pour les modes bidirectionnels plus complexes)
+            # Pour l'instant, nous restaurons juste la position dans les deux zones, ce qui est acceptable pour l'entrée simple.
             self._restore_cursor_position(tab.text_input, tab.text_input.textCursor().position())
             self._restore_cursor_position(tab.text_output, tab.text_output.textCursor().position())
+
         except Exception as e:
             logging.error(f"Erreur dans update_conversion : {str(e)}")
             self.status_bar.showMessage("Erreur lors de la conversion.")
         finally:
+            # Réactiver les signaux
             tab.text_input.blockSignals(False)
             tab.text_output.blockSignals(False)
             tab.is_updating = False
@@ -1962,7 +2099,20 @@ class BrailleUI(QMainWindow):
     def update_usage_time(self):
         if self.logged_in_user:
             elapsed = self.usage_start_time.secsTo(QTime.currentTime())
-            self.db.update_usage_time(self.logged_in_user.id, elapsed)
+            # Calculer le temps écoulé et formater la chaîne
+            hours, remainder = divmod(elapsed, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            self.current_usage_time_str = f"Temps d'utilisation : {hours:02d}:{minutes:02d}:{seconds:02d}"
+            
+            # Mettre à jour l'affichage dans la barre de statut via update_counters
+            self.update_counters() # Appeler pour rafraîchir le message de la barre de statut
+        else:
+            # Si l'utilisateur n'est pas connecté, le timer continue de tourner, mais on n'enregistre pas.
+            # On peut afficher le temps depuis le démarrage de l'app.
+            elapsed = self.usage_start_time.secsTo(QTime.currentTime())
+            hours, remainder = divmod(elapsed, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            self.current_usage_time_str = f"Temps d'utilisation : {hours:02d}:{minutes:02d}:{seconds:02d}"
 
     def mousePressEvent(self, event):
         # Empêcher la propagation de l'événement si nécessaire
@@ -2110,6 +2260,76 @@ Texte avec différentes tailles de police"""
                     "Erreur",
                     f"Erreur lors de la génération du PDF de test : {str(e)}"
                 )
+
+    def translate_text(self):
+        """Traduit le texte sélectionné ou tout le texte."""
+        tab = self.tab_widget.currentWidget()
+        if not tab:
+            return
+
+        # Ouvrir la boîte de dialogue de traduction
+        dialog = TranslationDialog(self)
+        if dialog.exec_() != QDialog.Accepted:
+            return
+
+        try:
+            # Obtenir le texte à traduire
+            cursor = tab.text_input.textCursor()
+            if cursor.hasSelection():
+                text_to_translate = cursor.selectedText()
+            else:
+                text_to_translate = tab.text_input.toPlainText()
+
+            if not text_to_translate.strip():
+                QMessageBox.warning(self, "Avertissement", "Aucun texte à traduire.")
+                return
+
+            # Effectuer la traduction
+            translated_text = self.translator.translate_text(
+                text_to_translate,
+                dialog.source_lang.currentText(),
+                dialog.target_lang.currentText()
+            )
+
+            # Remplacer le texte
+            if cursor.hasSelection():
+                cursor.insertText(translated_text)
+            else:
+                tab.text_input.setPlainText(translated_text)
+
+            self.status_bar.showMessage("Traduction terminée", 3000)
+            self.update_conversion()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la traduction : {str(e)}")
+
+    def detect_language(self):
+        """Détecte la langue du texte sélectionné ou tout le texte."""
+        tab = self.tab_widget.currentWidget()
+        if not tab:
+            return
+
+        try:
+            # Obtenir le texte à analyser
+            cursor = tab.text_input.textCursor()
+            if cursor.hasSelection():
+                text_to_analyze = cursor.selectedText()
+            else:
+                text_to_analyze = tab.text_input.toPlainText()
+
+            if not text_to_analyze.strip():
+                QMessageBox.warning(self, "Avertissement", "Aucun texte à analyser.")
+                return
+
+            # Détecter la langue
+            detected_lang = self.translator.detect_language(text_to_analyze)
+            if detected_lang:
+                QMessageBox.information(self, "Langue détectée", f"La langue détectée est : {detected_lang}")
+            else:
+                QMessageBox.warning(self, "Langue non détectée", "Impossible de détecter la langue du texte.")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la détection de la langue : {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

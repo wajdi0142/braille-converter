@@ -9,20 +9,25 @@ from concurrent.futures import ThreadPoolExecutor
 import threading
 import shutil
 import logging
+import json
+from backend.language_detector import LanguageDetector
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+CUSTOM_TABLE_FILE = "custom_tables.json"
 
 class BrailleEngine:
     def __init__(self, lou_path=LOU_TRANSLATE_PATH, tables_dir=TABLES_DIRECTORY):
         self.lou_path = self._check_liblouis(lou_path)
         self.tables_dir = self._check_tables_dir(tables_dir)
-        self.custom_table = {}
+        self.all_custom_tables = {}
+        self.load_custom_tables()
         self._wrap_cache = OrderedDict()
         self._wrap_cache_max_size = 500
         self._wrap_cache_width = None
-        self.load_custom_table()
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.lock = threading.Lock()
+        self.language_detector = LanguageDetector()
 
     def _check_liblouis(self, default_path):
         paths = [default_path, shutil.which("lou_translate")]
@@ -52,24 +57,25 @@ class BrailleEngine:
         import sys
         sys.exit(1)
 
-    def load_custom_table(self):
-        self.custom_table.clear()
-        custom_file = "custom_table.txt"
-        if os.path.exists(custom_file):
-            with open(custom_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    # Ignorer les lignes vides ou celles qui ne contiennent pas de virgule
-                    if "," not in line:
-                        continue
-                    try:
-                        char, braille = line.strip().split(",", 1)
-                        if len(char) >= 1 and all('\u2800' <= c <= '\u28FF' for c in braille):
-                            self.custom_table[char] = braille
-                    except ValueError as e:
-                        logging.error(f"Format incorrect dans {custom_file} : {line.strip()} - {str(e)}")
+    def load_custom_tables(self):
+        self.all_custom_tables.clear()
+        if os.path.exists(CUSTOM_TABLE_FILE):
+            try:
+                with open(CUSTOM_TABLE_FILE, "r", encoding="utf-8") as f:
+                    self.all_custom_tables = json.load(f)
+            except Exception as e:
+                logging.error(f"Error loading custom tables from {CUSTOM_TABLE_FILE}: {str(e)}")
+                self.all_custom_tables = {}
 
-    def update_custom_table(self):
-        self.load_custom_table()
+    def save_custom_tables(self):
+        try:
+            with open(CUSTOM_TABLE_FILE, "w", encoding="utf-8") as f:
+                json.dump(self.all_custom_tables, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            logging.error(f"Error saving custom tables to {CUSTOM_TABLE_FILE}: {str(e)}")
+
+    def update_custom_tables(self):
+        self.load_custom_tables()
         with self.lock:
             self._wrap_cache.clear()
 
@@ -275,41 +281,61 @@ class BrailleEngine:
         except subprocess.CalledProcessError as e:
             raise Exception(f"Erreur LibLouis: {e.stderr}")
 
-    def to_braille(self, text, table_path, line_width=33, capitalize=False, section_separator="\\u28CD", is_typing=False):
+    def to_braille(self, text, table_path, line_width=33, capitalize=False, section_separator="\u28CD", is_typing=False):
         if not self.lou_path or not text:
             return ""
 
         try:
             text = unicodedata.normalize("NFC", text)
-            input_lines = text.split("\\n")
+            
+            # Détection automatique de la langue si aucune table n'est spécifiée
+            if not table_path:
+                braille = self.language_detector.convert_to_braille(text)
+                if braille:
+                    return self.wrap_text_by_sentence(braille, line_width)
+            
+            # Continuer avec la conversion normale si une table est spécifiée
+            available_tables = self.get_available_tables()
+            current_table_name = None
+            for name, path in available_tables.items():
+                if os.path.normpath(path) == os.path.normpath(table_path):
+                    current_table_name = name
+                    break
+
+            current_custom_table = self.all_custom_tables.get(current_table_name, {})
+
+            processed_text_with_surcharges = text
+            for char_text, braille_correct in current_custom_table.items():
+                 processed_text_with_surcharges = processed_text_with_surcharges.replace(char_text, braille_correct)
+
+            input_lines = processed_text_with_surcharges.split("\n")
             braille_lines = []
             batch_size = 50
             batches = []
             current_batch = []
             empty_line_positions = []
 
-            # Déterminer si la table est une table arabe pour l'inversion
             is_arabic_table = "ar-ar" in os.path.basename(table_path).lower()
 
-            processed_lines = []
+            lines_to_send_to_liblouis = []
             for line in input_lines:
-                # Inverser la ligne si c'est une table arabe
                 line_to_process = line[::-1] if is_arabic_table else line
-                processed_lines.append(line_to_process)
+                lines_to_send_to_liblouis.append(line_to_process)
 
-            for idx, line in enumerate(processed_lines): # Utiliser processed_lines ici
+
+            for idx, line in enumerate(lines_to_send_to_liblouis):
                 if not line.strip():
                     empty_line_positions.append(idx)
                     if current_batch:
-                        batches.append("\\n".join(current_batch))
+                        batches.append("\n".join(current_batch))
                         current_batch = []
                     continue
                 current_batch.append(line)
                 if len(current_batch) >= batch_size:
-                    batches.append("\\n".join(current_batch))
+                    batches.append("\n".join(current_batch))
                     current_batch = []
             if current_batch:
-                batches.append("\\n".join(current_batch))
+                batches.append("\n".join(current_batch))
 
             batch_results = []
             if batches:
@@ -319,7 +345,7 @@ class BrailleEngine:
 
             braille_non_empty = []
             for batch_result in batch_results:
-                braille_non_empty.extend([line for line in batch_result.split("\\n") if line.strip()])
+                braille_non_empty.extend([line for line in batch_result.split("\n") if line.strip()])
 
             braille_result = []
             non_empty_idx = 0
@@ -329,104 +355,26 @@ class BrailleEngine:
                 else:
                     if non_empty_idx < len(braille_non_empty):
                         line = braille_non_empty[non_empty_idx]
-                        # Appliquer les surcharges APRES la conversion LibLouis
-                        for char, braille in self.custom_table.items():
-                            line = line.replace(char, braille) # Ceci était avant, à vérifier si c'est toujours correct pour les surcharges Braille -> Braille
-                        
-
-            # Appliquer les surcharges sur le texte original avant tout traitement par lots ou inversion
-            processed_text_with_surcharges = text
-            for char_text, braille_correct in self.custom_table.items():
-                 # Remplacer le caractère texte par sa traduction Braille correcte AVANT d'envoyer à LibLouis.
-                 # Ceci est la seule interprétation logique du format Text,Braille si le but est de garantir une traduction spécifique.
-                 processed_text_with_surcharges = processed_text_with_surcharges.replace(char_text, braille_correct)
-
-
-            input_lines = processed_text_with_surcharges.split("\\n") # Utiliser le texte avec surcharges ici
-            braille_lines = []
-            batch_size = 50
-            batches = []
-            current_batch = []
-            empty_line_positions = []
-
-            # Déterminer si la table est une table arabe pour l'inversion
-            is_arabic_table = "ar-ar" in os.path.basename(table_path).lower()
-
-            lines_to_send_to_liblouis = []
-            for line in input_lines:
-                # Inverser la ligne si c'est une table arabe, après application des surcharges
-                line_to_process = line[::-1] if is_arabic_table else line
-                lines_to_send_to_liblouis.append(line_to_process)
-
-
-            for idx, line in enumerate(lines_to_send_to_liblouis): # Envoyer les lignes potentiellement inversées et avec surcharges à LibLouis
-                if not line.strip():
-                    empty_line_positions.append(idx)
-                    if current_batch:
-                        batches.append("\\n".join(current_batch))
-                        current_batch = []
-                    continue
-                current_batch.append(line)
-                if len(current_batch) >= batch_size:
-                    batches.append("\\n".join(current_batch))
-                    current_batch = []
-            if current_batch:
-                batches.append("\\n".join(current_batch))
-
-            batch_results = []
-            if batches:
-                futures = [self.executor.submit(self._process_batch, batch, table_path, capitalize) for batch in batches]
-                for future in futures:
-                    batch_results.append(future.result())
-
-            braille_non_empty = []
-            for batch_result in batch_results:
-                # Les résultats de LibLouis sont déjà en Braille.
-                braille_non_empty.extend([line for line in batch_result.split("\\n") if line.strip()])
-
-            braille_result = []
-            non_empty_idx = 0
-            for idx in range(len(input_lines)): # Iterer sur les lignes d'input_lines (avec surcharges) pour maintenir la structure
-                if idx in empty_line_positions:
-                    braille_result.append("")
-                else:
-                    if non_empty_idx < len(braille_non_empty):
-                        line = braille_non_empty[non_empty_idx]
-                        # Ne pas appliquer les surcharges ici, elles l'ont été avant.
                         line = self.ensure_readability(line)
                         line = self.wrap_text_by_sentence(line, line_width, preserve_newlines=True)
                         braille_result.append(line)
                         non_empty_idx += 1
 
-            # Ajouter des lignes vides à braille_result si nécessaire pour correspondre au nombre de lignes d'input_lines
             while len(braille_result) < len(input_lines):
                  braille_result.append("")
 
-            braille_output = "\\n".join(braille_result).rstrip()
-
-            # Il faut s'assurer que le Braille résultant est bien dans l'ordre gauche-droite.
-            # Si LibLouis produit du Braille RTL pour une table RTL, il faudrait l'inverser ici.
-            # Généralement, LibLouis produit du Braille LTR même pour des langues RTL.
-            # Supposons que la sortie de LibLouis est LTR.
+            braille_output = "\n".join(braille_result).rstrip()
 
             if not is_typing:
-                # sync_lines va resynchroniser les sauts de ligne entre le texte original (potentiellement avec surcharges)
-                # et la sortie Braille, en utilisant la largeur de ligne.
-                # Il est important que le texte original ici soit le texte original SANS surcharges,
-                # sinon la synchronisation par rapport au texte affiché à gauche sera faussée.
-                # Donc, il faut garder le texte original passé en paramètre pour sync_lines.
-
-                # Revenir à l'utilisation du texte original pour sync_lines
-                original_text_for_sync = text # Le paramètre 'text' original
+                original_text_for_sync = text
                 synced_text, synced_braille = self.sync_lines(original_text_for_sync, braille_output, line_width, preserve_newlines=True)
 
                 if section_separator:
-                    synced_braille = synced_braille.replace("\\n\\n", f"\\n{section_separator}\\n")
+                    synced_braille = synced_braille.replace("\n\n", f"\n{section_separator}\n")
                 return synced_braille.rstrip()
             return braille_output.rstrip()
         except Exception as e:
             logging.error(f"Erreur de conversion en braille : {str(e)}")
-            # Afficher l'erreur à l'utilisateur via QMessageBox
             QMessageBox.warning(None, "Erreur", f"Erreur de conversion en braille : {e}")
             return ""
 
@@ -436,14 +384,14 @@ class BrailleEngine:
         try:
             result = subprocess.run(
                 cmd,
-                input=batch,
-                text=True,
+                input=batch.encode("utf-8"),
                 capture_output=True,
-                encoding="utf-8",
                 check=True,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
             )
-            return result.stdout.rstrip("\n")
+            # Decode the raw bytes using UTF-8. If this causes issues, we might need to investigate other encodings or how liblouis outputs.
+            decoded_output = result.stdout.decode("utf-8", errors="replace")
+            return decoded_output.rstrip("\n")
         except subprocess.CalledProcessError as e:
             raise Exception(f"Erreur LibLouis: {e.stderr}")
 
@@ -452,6 +400,17 @@ class BrailleEngine:
             return ""
 
         try:
+            available_tables = self.get_available_tables()
+            current_table_name = None
+            for name, path in available_tables.items():
+                if os.path.normpath(path) == os.path.normpath(table_path):
+                    current_table_name = name
+                    break
+
+            current_custom_table = self.all_custom_tables.get(current_table_name, {})
+
+            is_arabic_table = "ar-ar" in os.path.basename(table_path).lower()
+
             input_lines = braille_text.split("\n")
             text_lines = []
             batch_size = 50
@@ -491,20 +450,22 @@ class BrailleEngine:
                 else:
                     if non_empty_idx < len(text_non_empty):
                         text = text_non_empty[non_empty_idx]
-                        for char, braille in self.custom_table.items():
-                            text = text.replace(braille, char)
+                        # Apply custom table replacements from longest braille string to shortest
+                        sorted_custom_items = sorted(current_custom_table.items(), key=lambda item: len(item[1]), reverse=True)
+                        for char_text, braille_correct in sorted_custom_items:
+                            text = text.replace(braille_correct, char_text)
+                        # Correction : ré-inverser le texte si table arabe
+                        if is_arabic_table:
+                            text = text[::-1]
                         text = self.wrap_text_by_sentence(text, line_width, preserve_newlines=True)
                         text_result.append(text)
                         non_empty_idx += 1
 
             text_output = "\n".join(text_result).rstrip()
-            if not is_typing:
-                synced_text, synced_braille = self.sync_lines(text_output, braille_text, line_width, preserve_newlines=True)
-                return synced_text.rstrip()
-            return text_output.rstrip()
+            return text_output
         except Exception as e:
-            logging.error(f"Erreur de conversion en texte : {str(e)}")
-            QMessageBox.warning(None, "Erreur", f"Erreur de conversion en texte : {e}")
+            logging.error(f"Erreur de conversion depuis le braille : {str(e)}")
+            QMessageBox.warning(None, "Erreur", f"Erreur de conversion depuis le braille : {e}")
             return ""
 
     def ensure_readability(self, braille_text):
@@ -515,3 +476,7 @@ class BrailleEngine:
 
     def __del__(self):
         self.shutdown()
+
+    def update_conversion(self):
+        # Implementation of update_conversion method
+        pass

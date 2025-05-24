@@ -25,6 +25,7 @@ from frontend.styles import set_light_mode, set_dark_mode
 from frontend.custom_table import CustomBrailleTableWidget
 import pytesseract
 from PIL import Image, ImageEnhance
+import subprocess
 
 # Configurer la journalisation avec niveau DEBUG pour le débogage
 logging.basicConfig(filename='qt_errors.log', level=logging.DEBUG, 
@@ -219,7 +220,10 @@ class BrailleUI(QMainWindow):
         self.usage_timer = QTimer()
         self.usage_timer.timeout.connect(self.update_usage_time)
         self.usage_timer.start(1000)
+        self.usage_start_time = QTime.currentTime()  # Initialisation du temps de début
         self.conversion_mode = "text_to_braille"  # Mode de conversion par défaut
+        self.was_maximized = False # Initialisation de l'attribut
+        self.current_size = self.size() # Initialisation de la taille actuelle
 
         self.debounce_timer = QTimer()
         self.debounce_timer.setSingleShot(True)
@@ -729,15 +733,18 @@ class BrailleUI(QMainWindow):
 
         scale = self.zoom_slider.value() / 100.0
         font_size = int(self.base_font_size * scale)
-        tab.text_input.setFont(QFont(self.current_font, font_size))
-        tab.text_output.setFont(QFont(self.current_font, font_size))
-
-        if not cursor.hasSelection():
-            cursor.select(QTextCursor.Document)
+        
+        # Appliquer la police à la sélection ou au document entier
         fmt = QTextCharFormat()
         fmt.setFontFamily(self.current_font)
+        
+        if not cursor.hasSelection():
+            # Si pas de sélection, appliquer à tout le document
+            cursor.select(QTextCursor.Document)
+        
         cursor.mergeCharFormat(fmt)
 
+        # Restaurer le format de bloc
         block_format.setLineHeight(current_line_spacing * 100, QTextBlockFormat.ProportionalHeight)
         block_format.setTextIndent(current_indent)
         block_format.setAlignment(current_alignment)
@@ -752,23 +759,121 @@ class BrailleUI(QMainWindow):
         if tab:
             tab.text_input.blockSignals(True)
             tab.text_output.blockSignals(True)
+
+            # Sauvegarder le contenu actuel des deux zones
+            current_input_text = tab.text_input.toPlainText()
+            current_output_text = tab.text_output.toPlainText()
+
+            # Sauvegarder les formats des deux zones
+            input_document = tab.text_input.document()
+            output_document = tab.text_output.document()
+            input_formats = []
+            output_formats = []
+
+            # Sauvegarder les formats de la zone d'entrée
+            block = input_document.begin()
+            while block.isValid():
+                it = block.begin()
+                while not it.atEnd():
+                    fragment = it.fragment()
+                    if fragment.isValid():
+                        char_format = fragment.charFormat()
+                        input_formats.append({
+                            'position': fragment.position(),
+                            'length': fragment.length(),
+                            'bold': char_format.fontWeight() == QFont.Bold,
+                            'italic': char_format.fontItalic(),
+                            'underline': char_format.fontUnderline()
+                        })
+                    it += 1
+                block = block.next()
+
+            # Sauvegarder les formats de la zone de sortie
+            block = output_document.begin()
+            while block.isValid():
+                it = block.begin()
+                while not it.atEnd():
+                    fragment = it.fragment()
+                    if fragment.isValid():
+                        char_format = fragment.charFormat()
+                        output_formats.append({
+                            'position': fragment.position(),
+                            'length': fragment.length(),
+                            'bold': char_format.fontWeight() == QFont.Bold,
+                            'italic': char_format.fontItalic(),
+                            'underline': char_format.fontUnderline()
+                        })
+                    it += 1
+                block = block.next()
+
             if self.conversion_mode == "text_to_braille":
                 self.conversion_mode = "braille_to_text"
                 tab.text_input_label.setText("Braille :")
                 tab.text_output_label.setText("Texte :")
-                tab.text_input.setPlainText(tab.original_braille)
-                selected_table = self.table_combo.currentText()
-                if tab.original_braille and selected_table:
-                    text = self.braille_engine.from_braille(tab.original_braille, self.available_tables[selected_table])
-                    tab.text_output.setPlainText(text)
-                else:
-                    tab.text_output.clear()
+
+                # Échanger le contenu des zones
+                # La zone Braille ne doit pas avoir de formats riches
+                tab.text_input.setPlainText(current_output_text)
+                tab.text_output.setPlainText(current_input_text)
+
+                # Restaurer les formats de l'ancienne zone d'entrée (Texte) vers la nouvelle zone de sortie (Texte)
+                output_cursor = tab.text_output.textCursor()
+                for fmt in input_formats:
+                    output_cursor.setPosition(fmt['position'])
+                    output_cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, fmt['length'])
+                    char_format = QTextCharFormat()
+                    if fmt['bold']:
+                        char_format.setFontWeight(QFont.Bold)
+                    if fmt['italic']:
+                        char_format.setFontItalic(True)
+                    if fmt['underline']:
+                        char_format.setFontUnderline(True)
+                    output_cursor.mergeCharFormat(char_format)
+
+                # La nouvelle zone d'entrée (Braille) doit avoir tous ses formats riches supprimés
+                input_cursor = tab.text_input.textCursor()
+                input_cursor.select(QTextCursor.Document)
+                input_cursor.setCharFormat(QTextCharFormat()) # Supprimer tous les formats
+
+
+                # Mettre à jour les originaux
+                tab.original_text = current_input_text # L'original_text stocke maintenant le texte standard qui est dans text_output
+                tab.original_braille = current_output_text # L'original_braille stocke le texte braille qui est dans text_input
+
             else:
                 self.conversion_mode = "text_to_braille"
                 tab.text_input_label.setText("Texte :")
                 tab.text_output_label.setText("Braille :")
-                tab.text_input.setPlainText(tab.original_text)
-                tab.text_output.setPlainText(tab.original_braille)
+
+                # Échanger le contenu des zones
+                 # La zone Braille ne doit pas avoir de formats riches
+                tab.text_input.setPlainText(current_output_text)
+                tab.text_output.setPlainText(current_input_text)
+
+                # Restaurer les formats de l'ancienne zone de sortie (Texte) vers la nouvelle zone d'entrée (Texte)
+                input_cursor = tab.text_input.textCursor()
+                for fmt in output_formats:
+                    input_cursor.setPosition(fmt['position'])
+                    input_cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, fmt['length'])
+                    char_format = QTextCharFormat()
+                    if fmt['bold']:
+                        char_format.setFontWeight(QFont.Bold)
+                    if fmt['italic']:
+                        char_format.setFontItalic(True)
+                    if fmt['underline']:
+                        char_format.setFontUnderline(True)
+                    input_cursor.mergeCharFormat(char_format)
+
+                 # La nouvelle zone de sortie (Braille) doit avoir tous ses formats riches supprimés
+                output_cursor = tab.text_output.textCursor()
+                output_cursor.select(QTextCursor.Document)
+                output_cursor.setCharFormat(QTextCharFormat()) # Supprimer tous les formats
+
+
+                # Mettre à jour les originaux
+                tab.original_text = current_output_text # L'original_text stocke maintenant le texte standard qui est dans text_input
+                tab.original_braille = current_input_text # L'original_braille stocke le texte braille qui est dans text_output
+
             tab.text_input.blockSignals(False)
             tab.text_output.blockSignals(False)
             self.update_counters()
@@ -1514,21 +1619,11 @@ class BrailleUI(QMainWindow):
                 tab.original_text = formatted_text
 
                 if formatted_text.strip():
-                    selected_table = self.table_combo.currentText()
-                    if selected_table:
-                        try:
-                            start_convert = time.time()
-                            thread = BrailleConversionThread(self.braille_engine, formatted_text,
-                                                            self.available_tables[selected_table], self.line_width)
-                            thread.conversion_done.connect(lambda _, ft, fb: self.on_conversion_done(tab, ft, fb))
-                            thread.start()
-                            tab._conversion_thread = thread
-                            logging.debug(f"Démarrage de la conversion pour {file_path}...")
-                        except Exception as e:
-                            logging.error(f"Erreur lors de la conversion de {file_path} : {str(e)}")
-                            tab.text_output.setPlainText("Erreur lors de la conversion en Braille.")
-                    else:
-                        tab.text_output.clear()
+                    try:
+                        logging.debug(f"Texte transmis à detect_and_apply_table : {formatted_text[:200]}")
+                        self.detect_and_apply_table(formatted_text)
+                    except Exception as e:
+                        logging.error(f"Erreur lors de la détection de la langue : {str(e)}")
                 else:
                     tab.text_output.clear()
 
@@ -1542,6 +1637,7 @@ class BrailleUI(QMainWindow):
 
             tab_title = os.path.basename(file_path)
             self.tab_widget.addTab(tab, tab_title)
+            self.tab_widget.setCurrentWidget(tab)
             if self.logged_in_user:
                 try:
                     fichier = Fichier(tab_title, file_path)
@@ -1626,6 +1722,7 @@ class BrailleUI(QMainWindow):
 
             tab_title = os.path.basename(file_path)
             self.tab_widget.addTab(tab, tab_title)
+            self.tab_widget.setCurrentWidget(tab)
             self.update_counters()
             self.tab_widget.setCurrentIndex(self.tab_widget.count() - 1)
             
@@ -1641,7 +1738,7 @@ class BrailleUI(QMainWindow):
             logging.error(f"Erreur lors de l'importation de l'image : {str(e)}")
             QMessageBox.critical(self, "Erreur", f"Erreur lors de l'importation : {str(e)}")
 
-    def _save_or_export(self, tab, file_path=None, export_format="txt", prompt_save_type=True):
+    def _save_or_export(self, tab, file_path=None, export_format="txt", prompt_save_type=True, determined_save_type=None):
         if not tab or (not tab.text_input.toPlainText().strip() and not tab.text_output.toPlainText().strip()):
             QMessageBox.warning(self, "Avertissement", "Aucun contenu à sauvegarder.")
             return False
@@ -1693,7 +1790,21 @@ class BrailleUI(QMainWindow):
             tab.save_type = save_type
             tab_title = os.path.basename(file_path)
             self.tab_widget.setTabText(self.tab_widget.indexOf(tab), tab_title)
-            QMessageBox.information(self, "Succès", f"Fichier sauvegardé : {file_path}")
+
+            # Remplacer QMessageBox.information par une boîte de dialogue personnalisée
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setWindowTitle("Succès")
+            msg_box.setText(f"Fichier sauvegardé : {file_path}")
+            
+            # Ajouter les boutons Personnalisés
+            open_button = msg_box.addButton("Ouvrir", QMessageBox.AcceptRole)
+            ok_button = msg_box.addButton("OK", QMessageBox.RejectRole) # Utiliser RejectRole pour le bouton par défaut
+
+            # Connecter le signal du bouton Ouvrir
+            open_button.clicked.connect(lambda: self.open_file(file_path))
+
+            msg_box.exec_()
 
             if self.logged_in_user:
                 try:
@@ -1711,9 +1822,27 @@ class BrailleUI(QMainWindow):
 
     def save_document(self):
         tab = self.tab_widget.currentWidget()
-        if tab and tab.file_path and os.path.exists(tab.file_path):
-            self._save_or_export(tab, tab.file_path, os.path.splitext(tab.file_path)[1][1:], False)
+        if not tab:
+            return
+
+        text_content_present = tab.text_input.toPlainText().strip()
+        braille_content_present = tab.text_output.toPlainText().strip()
+
+        # Suppression de la logique de détermination automatique du save_type basé sur le contenu
+        # save_type = "Texte + Braille"
+        # if not text_content_present and braille_content_present:
+        #     save_type = "Braille uniquement"
+        # elif text_content_present and not braille_content_present:
+        #     save_type = "Texte uniquement"
+        # elif not text_content_present and not braille_content_present:
+        #     QMessageBox.warning(self, "Avertissement", "Aucun contenu à sauvegarder.")
+        #     return
+
+        if tab.file_path and os.path.exists(tab.file_path):
+            # Si le fichier existe déjà, demander le type de sauvegarde
+            self._save_or_export(tab, tab.file_path, os.path.splitext(tab.file_path)[1][1:], True) # prompt_save_type=True
         else:
+            # Si c'est un nouveau fichier ou si le chemin n'existe plus, appeler Enregistrer sous
             self.save_document_as()
 
     def save_document_as(self):
@@ -1944,13 +2073,64 @@ class BrailleUI(QMainWindow):
             return
         if not tab.is_updating:
             logging.debug("on_text_changed: conversion en temps réel")
-            self.update_conversion()
+            # Démarrer le minuteur de temporisation au lieu d'appeler update_conversion directement
+            self.debounce_timer.stop()
+            self.debounce_timer.start(self.debounce_delay)
+            # La méthode process_debounced_conversion sera appelée lorsque le minuteur expire
+            # self.update_conversion() # Suppression de l'appel direct
 
     def process_debounced_conversion(self):
         tab = self.tab_widget.currentWidget()
         if not tab:
             return
         tab.process_pending_changes()
+
+        # Détection automatique de la langue si en mode Texte -> Braille
+        logging.debug("process_debounced_conversion: Mode de conversion: %s", self.conversion_mode)
+        if self.conversion_mode == "text_to_braille":
+            tab = self.tab_widget.currentWidget()
+            if tab:
+                text_to_analyze = tab.text_input.toPlainText()
+                logging.debug("process_debounced_conversion: Texte à analyser pour détection de langue: %s", text_to_analyze[:100])
+                if text_to_analyze.strip():
+                    try:
+                        detected_lang_code = self.translator.detect_language(text_to_analyze)
+                        logging.debug(f"process_debounced_conversion: Langue détectée (code) : {detected_lang_code}")
+                        
+                        # Mapper le code de langue détecté à un nom de table Braille disponible
+                        lang_code_to_table_name = {
+                            'fr': 'Français (grade 1)',
+                            'ar': 'Arabe (grade 1)',
+                            'en': 'Anglais (grade 1)',
+                            'en-us': 'Anglais (grade 1)',
+                            'en-gb': 'Anglais (grade 1)'
+                        }
+                        
+                        corresponding_table_name = lang_code_to_table_name.get(detected_lang_code)
+                        logging.debug(f"process_debounced_conversion: Table correspondante mappée : {corresponding_table_name}")
+                        
+                        if corresponding_table_name and corresponding_table_name in self.available_tables:
+                            current_table = self.table_combo.currentText()
+                            if current_table != corresponding_table_name:
+                                logging.debug(f"process_debounced_conversion: Changement de table : {current_table} -> {corresponding_table_name}")
+                                # Désactiver temporairement les signaux pour éviter les boucles
+                                self.table_combo.blockSignals(True)
+                                self.table_combo.setCurrentText(corresponding_table_name)
+                                self.table_combo.blockSignals(False)
+                                # Forcer la mise à jour de la conversion
+                                self.update_conversion()
+                                self.status_bar.showMessage(f"Langue détectée : {detected_lang_code}, table sélectionnée : {corresponding_table_name}", 3000)
+                            else:
+                                logging.debug("process_debounced_conversion: La table actuelle correspond à la langue détectée.")
+                        else:
+                            logging.debug(f"process_debounced_conversion: Aucune table correspondante trouvée pour le code langue : {detected_lang_code}")
+                            self.status_bar.showMessage(f"Langue détectée : {detected_lang_code}. Aucune table Braille correspondante disponible.", 3000)
+
+                    except Exception as e:
+                        logging.error(f"process_debounced_conversion: Erreur lors de la détection automatique de la langue : {str(e)}", exc_info=True)
+                        self.status_bar.showMessage("Erreur lors de la détection de la langue", 3000)
+
+        # Continuer avec la mise à jour normale de la conversion
         self.update_conversion()
 
     def update_conversion(self):
@@ -2330,6 +2510,49 @@ Texte avec différentes tailles de police"""
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la détection de la langue : {str(e)}")
+
+    def open_file(self, file_path):
+        """Ouvre le fichier dans l'application par défaut du système."""
+        try:
+            # Utiliser os.startfile() sur Windows pour ouvrir le fichier
+            if sys.platform == "win32":
+                os.startfile(file_path)
+            elif sys.platform == "darwin": # macOS
+                subprocess.call(["open", "--", file_path])
+            else: # linux variants
+                subprocess.call(["xdg-open", "--", file_path])
+        except Exception as e:
+            logging.error(f"Erreur lors de l'ouverture du fichier {file_path}: {str(e)}")
+            QMessageBox.critical(self, "Erreur", f"Impossible d'ouvrir le fichier : {str(e)}")
+
+    def detect_and_apply_table(self, text):
+        detected_lang = self.translator.detect_language(text)
+        logging.debug(f"Résultat détection : {detected_lang}")
+        # Normalisation du code langue
+        if detected_lang:
+            detected_lang = detected_lang.lower()
+            if len(detected_lang) > 2:
+                if 'arab' in detected_lang:
+                    detected_lang = 'ar'
+                elif 'fr' in detected_lang:
+                    detected_lang = 'fr'
+                elif 'en' in detected_lang:
+                    detected_lang = 'en'
+                else:
+                    detected_lang = detected_lang[:2]
+        else:
+            detected_lang = 'en'
+        lang_to_table = {
+            'ar': 'Arabe (grade 1)',
+            'fr': 'Français (grade 1)',
+            'en': 'Anglais (grade 1)'
+        }
+        selected_table = lang_to_table.get(detected_lang, 'Anglais (grade 1)')
+        self.table_combo.blockSignals(True)
+        self.table_combo.setCurrentText(selected_table)
+        self.table_combo.blockSignals(False)
+        self.status_bar.showMessage(f"Langue détectée : {detected_lang}, table sélectionnée : {selected_table}", 3000)
+        self.update_conversion()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
